@@ -24,8 +24,7 @@ const base = 'inline-flex items-center rounded-md px-3 py-1 text-sm font-medium'
 
 const tenantStyles: Record<TenantStatus, string> = {
   active: 'bg-green-100 text-emerald-600',
-  blocked: 'bg-red-100 text-red-600',
-  suspended: 'bg-amber-50 text-amber-500',
+  suspended: 'bg-red-100 text-red-600',
 }
 
 const subscriptionStyles: Record<SubscriptionStatus, string> = {

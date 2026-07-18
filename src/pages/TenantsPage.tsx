@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Download, Ban, CheckCircle2, ExternalLink } from 'lucide-react'
 import type { Company, TenantStatus, BillingMode } from '@/types/admin'
-import { companies, plans } from '@/data/mock'
+import { companies, plans, subscriptionByCompany } from '@/data/mock'
 import { billingModeLabel, tenantStatusLabel } from '@/types/labels'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { Toolbar } from '@/components/ui/Toolbar'
@@ -10,11 +10,11 @@ import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
 import { Pagination, paginate, PAGE_SIZES } from '@/components/ui/Pagination'
 import { Tabs } from '@/components/ui/Tabs'
-import { TenantStatusBadge, BillingModeBadge } from '@/components/ui/StatusBadge'
+import { TenantStatusBadge } from '@/components/ui/StatusBadge'
 import { RowMenu } from '@/components/ui/RowMenu'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Select } from '@/components/ui/Select'
-import { formatDate, formatInn, formatMoney, formatNumber } from '@/lib/format'
+import { daysUntil, formatDate, formatInn, formatMoney, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const ANY = 'all'
@@ -22,35 +22,32 @@ const ANY = 'all'
 const statusTabs: Array<{ key: string; label: string; pill: string }> = [
   { key: ANY, label: 'Все', pill: 'bg-gray-300' },
   { key: 'active', label: 'Активные', pill: 'bg-green-400' },
-  { key: 'blocked', label: 'Заблокированные', pill: 'bg-red-500' },
-  { key: 'suspended', label: 'Приостановленные', pill: 'bg-amber-300' },
+  { key: 'suspended', label: 'Приостановленные', pill: 'bg-red-500' },
 ]
 
 /** Client-side CSV export — semicolon-separated with a BOM so Excel reads Cyrillic. */
 function exportCompaniesCsv(rows: Company[]) {
   const headers = [
-    'ИНН',
     'Название',
-    'Статус',
-    'Режим биллинга',
-    'План',
+    'ИНН',
     'Баланс',
-    'Док. отпр. (30д)',
+    'Тарифный план',
+    'Действует до',
     'Сотрудники',
+    'Отправлено док. (за месяц)',
+    'Статус',
     'Регистрация',
-    'Последняя активность',
   ]
   const body = rows.map((c) => [
-    c.inn,
     c.name,
-    tenantStatusLabel[c.status],
-    billingModeLabel[c.billingMode],
-    c.planName ?? '—',
+    c.inn,
     formatMoney(c.balance),
-    String(c.docsSent30d),
+    c.planName ?? '—',
+    formatDate(subscriptionByCompany(c.id)?.periodEnd ?? null),
     String(c.employees),
+    String(c.docsSentThisMonth),
+    tenantStatusLabel[c.status],
     formatDate(c.createdAt),
-    formatDate(c.lastActiveAt),
   ])
   const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
   const csv = [headers, ...body].map((r) => r.map(escape).join(';')).join('\r\n')
@@ -133,7 +130,6 @@ export default function TenantsPage() {
     return {
       [ANY]: rows.length,
       active: by('active'),
-      blocked: by('blocked'),
       suspended: by('suspended'),
     } as Record<string, number>
   }, [rows])
@@ -149,30 +145,14 @@ export default function TenantsPage() {
 
   const columns: Column<Company>[] = [
     {
-      key: 'inn',
-      header: 'ИНН',
-      cell: (c) => <span className="font-medium whitespace-nowrap">{formatInn(c.inn)}</span>,
-    },
-    {
       key: 'name',
       header: 'Название',
       cell: (c) => <span className="font-medium text-slate-800">{c.name}</span>,
     },
-    { key: 'status', header: 'Статус', cell: (c) => <TenantStatusBadge status={c.status} /> },
     {
-      key: 'mode',
-      header: 'Режим биллинга',
-      cell: (c) => <BillingModeBadge mode={c.billingMode} />,
-    },
-    {
-      key: 'plan',
-      header: 'План',
-      cell: (c) =>
-        c.planName ? (
-          <span className="whitespace-nowrap">{c.planName}</span>
-        ) : (
-          <span className="text-gray-400">—</span>
-        ),
+      key: 'inn',
+      header: 'ИНН',
+      cell: (c) => <span className="whitespace-nowrap">{formatInn(c.inn)}</span>,
     },
     {
       key: 'balance',
@@ -190,10 +170,36 @@ export default function TenantsPage() {
       ),
     },
     {
-      key: 'docs',
-      header: 'Док. отпр. (30д)',
-      cls: 'text-right',
-      cell: (c) => <span className="tabular-nums">{formatNumber(c.docsSent30d)}</span>,
+      key: 'plan',
+      header: 'Тарифный план',
+      cell: (c) =>
+        c.planName ? (
+          <span className="whitespace-nowrap">{c.planName}</span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+    {
+      key: 'planExpiry',
+      header: 'Действует до',
+      cell: (c) => {
+        const sub = subscriptionByCompany(c.id)
+        if (!sub) return <span className="text-gray-400">—</span>
+        const left = daysUntil(sub.periodEnd)
+        return (
+          <div className="flex flex-col whitespace-nowrap">
+            <span>{formatDate(sub.periodEnd)}</span>
+            <span
+              className={cn(
+                'text-xs',
+                left < 0 ? 'text-red-600' : left <= 7 ? 'text-amber-500' : 'text-gray-500',
+              )}
+            >
+              {left < 0 ? 'истёк' : `через ${formatNumber(left)} дн.`}
+            </span>
+          </div>
+        )
+      },
     },
     {
       key: 'employees',
@@ -202,16 +208,16 @@ export default function TenantsPage() {
       cell: (c) => <span className="tabular-nums">{formatNumber(c.employees)}</span>,
     },
     {
+      key: 'docs',
+      header: 'Отправлено док. (за месяц)',
+      cls: 'text-right',
+      cell: (c) => <span className="tabular-nums">{formatNumber(c.docsSentThisMonth)}</span>,
+    },
+    { key: 'status', header: 'Статус', cell: (c) => <TenantStatusBadge status={c.status} /> },
+    {
       key: 'createdAt',
       header: 'Регистрация',
       cell: (c) => <span className="whitespace-nowrap">{formatDate(c.createdAt)}</span>,
-    },
-    {
-      key: 'lastActiveAt',
-      header: 'Последняя активность',
-      cell: (c) => (
-        <span className="whitespace-nowrap text-slate-600">{formatDate(c.lastActiveAt)}</span>
-      ),
     },
     {
       key: 'actions',
@@ -226,14 +232,14 @@ export default function TenantsPage() {
                 icon: <ExternalLink className="size-4" />,
                 onClick: () => navigate(`/tenants/${c.id}`),
               },
-              c.status === 'blocked'
+              c.status === 'suspended'
                 ? {
-                    label: 'Разблокировать',
+                    label: 'Активировать',
                     icon: <CheckCircle2 className="size-4" />,
                     onClick: () => setBlockTarget(c),
                   }
                 : {
-                    label: 'Заблокировать',
+                    label: 'Приостановить',
                     icon: <Ban className="size-4" />,
                     danger: true,
                     onClick: () => setBlockTarget(c),
@@ -245,7 +251,7 @@ export default function TenantsPage() {
     },
   ]
 
-  const unblocking = blockTarget?.status === 'blocked'
+  const unblocking = blockTarget?.status === 'suspended'
 
   return (
     <div className="flex flex-col gap-4">
@@ -283,7 +289,6 @@ export default function TenantsPage() {
               options={[
                 { value: ANY, label: 'Любой статус' },
                 { value: 'active', label: tenantStatusLabel.active },
-                { value: 'blocked', label: tenantStatusLabel.blocked },
                 { value: 'suspended', label: tenantStatusLabel.suspended },
               ]}
             />
@@ -346,8 +351,8 @@ export default function TenantsPage() {
         open={blockTarget !== null}
         onClose={() => setBlockTarget(null)}
         destructive={!unblocking}
-        confirmLabel={unblocking ? 'Разблокировать' : 'Заблокировать'}
-        title={unblocking ? 'Разблокировать компанию' : 'Заблокировать компанию'}
+        confirmLabel={unblocking ? 'Активировать' : 'Приостановить'}
+        title={unblocking ? 'Активировать компанию' : 'Приостановить компанию'}
         description={
           blockTarget && (
             <>
@@ -363,7 +368,7 @@ export default function TenantsPage() {
           if (!blockTarget) return
           setOverrides((prev) => ({
             ...prev,
-            [blockTarget.id]: unblocking ? 'active' : 'blocked',
+            [blockTarget.id]: unblocking ? 'active' : 'suspended',
           }))
         }}
       />

@@ -17,7 +17,6 @@ import type {
 
 export const tenantStatusLabel: Record<TenantStatus, string> = {
   active: 'Активна',
-  blocked: 'Заблокирована',
   suspended: 'Приостановлена',
 }
 

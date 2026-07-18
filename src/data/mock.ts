@@ -200,7 +200,7 @@ export const billingSettings = {
 /** Price per document for a tenant, honouring any custom override. */
 export function effectivePricePerDoc(company: Company): number {
   if (company.customPricePerDoc !== null) return company.customPricePerDoc
-  const volume = company.docsSent30d
+  const volume = company.docsSentThisMonth
   const tier =
     priceTiers.find(
       (t) => volume >= t.volumeFrom && (t.volumeTo === null || volume <= t.volumeTo),
@@ -217,7 +217,7 @@ function makeCompany(i: number): Company {
   const dupe = i >= COMPANY_STEMS.length ? ` ${Math.floor(i / COMPANY_STEMS.length) + 1}` : ''
   const name = `${stem}${dupe} ${pick(SUFFIXES)}`
 
-  const status: TenantStatus = chance(0.08) ? 'blocked' : chance(0.06) ? 'suspended' : 'active'
+  const status: TenantStatus = chance(0.12) ? 'suspended' : 'active'
   const billingMode: BillingMode = chance(0.45) ? 'subscription' : chance(0.15) ? 'hybrid' : 'payg'
   const createdDays = int(5, 400)
   const director = fullName()
@@ -243,16 +243,17 @@ function makeCompany(i: number): Company {
     accountNumber: `2020 8000 ${digits(4)} ${digits(4)} ${digits(3)}`,
     status,
     statusReason:
-      status === 'blocked'
-        ? 'Задолженность по оплате более 30 дней'
-        : status === 'suspended'
-          ? 'Проверка данных по запросу налоговой'
-          : null,
+      status === 'suspended'
+        ? pick([
+            'Задолженность по оплате более 30 дней',
+            'Проверка данных по запросу налоговой',
+          ])
+        : null,
     billingMode,
     customPricePerDoc: chance(0.1) ? pick([200, 220, 280, 300]) : null,
     planName: null,
     balance: billingMode === 'subscription' ? int(0, 400_000) : int(-0, 3_500_000),
-    docsSent30d: chance(0.15) ? int(1_100, 24_000) : int(0, 900),
+    docsSentThisMonth: chance(0.15) ? int(1_100, 24_000) : int(0, 900),
     employees: int(1, 28),
     createdAt: daysAgo(createdDays),
     lastActiveAt: daysAgo(int(0, Math.min(createdDays, 60))),
@@ -369,7 +370,7 @@ export const tenantUsers: TenantUser[] = companies.flatMap((c, ci) => {
       role,
       email: `user${ui + 1}@${c.website.replace('https://', '')}`,
       phone: phone(),
-      status: c.status === 'blocked' ? 'blocked' : chance(0.07) ? 'blocked' : 'active',
+      status: c.status === 'suspended' ? 'blocked' : chance(0.07) ? 'blocked' : 'active',
       eimzoBound: role === 'director' ? chance(0.95) : chance(0.5),
       lastLoginAt: daysAgo(int(0, 90)),
     }

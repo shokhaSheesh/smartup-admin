@@ -277,7 +277,7 @@ export default function DashboardPage() {
 
     const lowBalance = companies
       .filter((c) => {
-        if (c.status === 'blocked') return false
+        if (c.status === 'suspended') return false
         const price = effectivePricePerDoc(c)
         return c.balance < price * 10
       })
@@ -324,7 +324,7 @@ export default function DashboardPage() {
       }))
 
     const blocked = companies
-      .filter((c) => c.status === 'blocked')
+      .filter((c) => c.status === 'suspended')
       .map<AttentionRow>((c) => ({
         id: `bl-${c.id}`,
         to: `/tenants/${c.id}`,
@@ -391,7 +391,7 @@ export default function DashboardPage() {
       },
       {
         key: 'blocked',
-        title: 'Заблокированные компании',
+        title: 'Приостановленные компании',
         hint: 'Доступ к платформе ограничен',
         icon: Ban,
         pill: 'bg-gray-300',

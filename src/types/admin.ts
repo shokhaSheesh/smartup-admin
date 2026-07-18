@@ -1,6 +1,6 @@
 /** Domain types for the Smartup24 Doc super-admin panel. */
 
-export type TenantStatus = 'active' | 'blocked' | 'suspended'
+export type TenantStatus = 'active' | 'suspended'
 export type BillingMode = 'subscription' | 'payg' | 'hybrid'
 export type SubscriptionStatus =
   | 'active'
@@ -76,7 +76,7 @@ export type Company = {
   customPricePerDoc: number | null
   planName: string | null
   balance: number
-  docsSent30d: number
+  docsSentThisMonth: number
   employees: number
   createdAt: string
   lastActiveAt: string

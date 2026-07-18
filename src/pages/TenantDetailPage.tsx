@@ -163,7 +163,7 @@ export default function TenantDetailPage() {
   }
 
   const status = statusOverride ?? company.status
-  const blocked = status === 'blocked'
+  const blocked = status === 'suspended'
   const subscription = subscriptionByCompany(company.id)
   const balance = balanceByCompany(company.id)
   const price = customPrice ?? effectivePricePerDoc(company)
@@ -179,7 +179,7 @@ export default function TenantDetailPage() {
     if (pending.kind === 'status') {
       setStatusOverride(pending.next)
       setBanner(
-        `Статус изменён на «${pending.next === 'blocked' ? 'Заблокирована' : 'Активна'}». Причина: ${reason}`,
+        `Статус изменён на «${pending.next === 'suspended' ? 'Приостановлена' : 'Активна'}». Причина: ${reason}`,
       )
     } else if (pending.kind === 'resolution') {
       if (pending.label === 'Включить оплату за документ') setOverageMode('payg')
@@ -320,11 +320,13 @@ export default function TenantDetailPage() {
               </Button>
               <button
                 type="button"
-                onClick={() => setPending({ kind: 'status', next: blocked ? 'active' : 'blocked' })}
+                onClick={() =>
+                  setPending({ kind: 'status', next: blocked ? 'active' : 'suspended' })
+                }
                 className="flex items-center gap-2 rounded-lg border border-red-300 px-6 py-2.5 text-sm font-semibold text-red-500 transition hover:bg-red-50"
               >
                 {blocked ? <CheckCircle2 className="size-4" /> : <Ban className="size-4" />}
-                {blocked ? 'Разблокировать' : 'Блокировать'}
+                {blocked ? 'Активировать' : 'Приостановить'}
               </button>
             </>
           }
@@ -465,7 +467,7 @@ export default function TenantDetailPage() {
                 </span>
               </Field>
               <Field label="Отправлено документов за 30 дней">
-                {formatNumber(company.docsSent30d)}
+                {formatNumber(company.docsSentThisMonth)}
               </Field>
               <Field label="Доплата сверх квоты включена">
                 {overageMode === 'payg' || subscription?.overageMode === 'payg' ? 'Да' : 'Нет'}
@@ -677,13 +679,13 @@ export default function TenantDetailPage() {
         open={pending !== null}
         onClose={() => setPending(null)}
         onConfirm={applyPending}
-        destructive={pending?.kind === 'status' && pending.next === 'blocked'}
+        destructive={pending?.kind === 'status' && pending.next === 'suspended'}
         confirmLabel={pending?.kind === 'resolution' ? pending.label : 'Подтвердить'}
         title={
           pending?.kind === 'status'
-            ? pending.next === 'blocked'
-              ? 'Заблокировать компанию'
-              : 'Разблокировать компанию'
+            ? pending.next === 'suspended'
+              ? 'Приостановить компанию'
+              : 'Активировать компанию'
             : pending?.kind === 'resolution'
               ? pending.label
               : 'Изменение кастомной цены'
