@@ -1,0 +1,602 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, Paperclip, Plus, Search, ShieldAlert } from 'lucide-react'
+import { PageCard, PageHeader } from '@/components/ui/PageCard'
+import { DataTable } from '@/components/ui/DataTable'
+import type { Column } from '@/components/ui/DataTable'
+import { Toolbar } from '@/components/ui/Toolbar'
+import { Pagination, paginate, PAGE_SIZES } from '@/components/ui/Pagination'
+import { Select } from '@/components/ui/Select'
+import { Input } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { adjustments as seedAdjustments, adminUsers, companies, currentAdmin } from '@/data/mock'
+import type { Adjustment, AdjustmentCategory, Company } from '@/types/admin'
+import { adjustmentCategoryLabel } from '@/types/labels'
+import { formatDate, formatDateTime, formatInn, formatMoney, formatNumber, formatSum } from '@/lib/format'
+import { cn } from '@/lib/cn'
+
+const DAY = 86_400_000
+
+type Direction = 'credit' | 'debit'
+
+const directionLabel: Record<Direction, string> = {
+  credit: 'Начисление (Credit)',
+  debit: 'Списание (Debit)',
+}
+
+const directionShort: Record<Direction, string> = {
+  credit: 'Credit',
+  debit: 'Debit',
+}
+
+const CATEGORY_KEYS = Object.keys(adjustmentCategoryLabel) as AdjustmentCategory[]
+
+const DIRECTION_OPTIONS = [
+  { value: 'all', label: 'Все направления' },
+  { value: 'credit', label: directionLabel.credit },
+  { value: 'debit', label: directionLabel.debit },
+]
+
+const CATEGORY_FILTER_OPTIONS = [
+  { value: 'all', label: 'Все категории' },
+  ...CATEGORY_KEYS.map((c) => ({ value: c, label: adjustmentCategoryLabel[c] })),
+]
+
+const CATEGORY_FORM_OPTIONS = CATEGORY_KEYS.map((c) => ({
+  value: c,
+  label: adjustmentCategoryLabel[c],
+}))
+
+const ADMIN_OPTIONS = [
+  { value: 'all', label: 'Все администраторы' },
+  ...adminUsers.map((a) => ({ value: a.fullName, label: a.fullName })),
+]
+
+/** Searchable company picker — matches on ИНН or name, per plan 4.12. */
+function CompanyPicker({
+  value,
+  onChange,
+  invalid,
+}: {
+  value: Company | null
+  onChange: (company: Company) => void
+  invalid: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const list = q
+      ? companies.filter((c) => c.inn.includes(q) || c.name.toLowerCase().includes(q))
+      : companies
+    return list.slice(0, 40)
+  }, [query])
+
+  return (
+    <div className="flex w-full flex-col items-start gap-1.5" ref={ref}>
+      <span className="text-sm font-medium leading-5 text-slate-700">
+        Компания<span className="text-red-500"> *</span>
+      </span>
+      <div className="relative w-full">
+        <div
+          className={cn(
+            'flex w-full items-center gap-2 overflow-hidden rounded-lg bg-white px-3.5 py-2.5 outline outline-1 outline-offset-[-1px] transition',
+            invalid
+              ? 'outline-red-300 focus-within:outline-red-400'
+              : 'outline-gray-200 focus-within:outline-Smart-blue',
+          )}
+        >
+          <Search className="size-5 shrink-0 text-gray-400" />
+          <input
+            value={open ? query : value ? `${formatInn(value.inn)} · ${value.name}` : query}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setOpen(true)
+            }}
+            onFocus={() => {
+              setQuery('')
+              setOpen(true)
+            }}
+            placeholder="Поиск по ИНН или названию"
+            className="flex-1 bg-transparent text-base font-normal leading-6 text-neutral-900 outline-none placeholder:text-gray-500"
+          />
+        </div>
+
+        {open && (
+          <div className="absolute z-20 mt-1.5 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+            {matches.length === 0 ? (
+              <div className="px-3.5 py-2 text-sm text-gray-500">Компании не найдены</div>
+            ) : (
+              matches.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(c)
+                    setQuery('')
+                    setOpen(false)
+                  }}
+                  className="flex w-full items-center justify-between gap-2 px-3.5 py-2 text-left hover:bg-gray-50"
+                >
+                  <span className="flex flex-col">
+                    <span className="text-sm font-medium text-slate-800">{c.name}</span>
+                    <span className="text-xs text-gray-500">
+                      ИНН {formatInn(c.inn)} · баланс {formatMoney(c.balance)}
+                    </span>
+                  </span>
+                  {value?.id === c.id && <Check className="size-4 shrink-0 text-Smart-blue" />}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+      {invalid && <span className="text-sm leading-5 text-red-600">Выберите компанию</span>}
+    </div>
+  )
+}
+
+export default function AdjustmentsPage() {
+  /** Local ledger — new adjustments are prepended, nothing is persisted. */
+  const [rowsData, setRowsData] = useState<Adjustment[]>(seedAdjustments)
+
+  const [search, setSearch] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [direction, setDirection] = useState('all')
+  const [category, setCategory] = useState('all')
+  const [admin, setAdmin] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
+
+  /* --------------------------------------------------------------- the form */
+  const [formOpen, setFormOpen] = useState(false)
+  const [fCompany, setFCompany] = useState<Company | null>(null)
+  const [fDirection, setFDirection] = useState<Direction>('credit')
+  const [fAmount, setFAmount] = useState('')
+  const [fReason, setFReason] = useState('')
+  const [fCategory, setFCategory] = useState<string>('compensation')
+  const [fFileName, setFFileName] = useState<string | null>(null)
+  const [touched, setTouched] = useState(false)
+  const [confirmation, setConfirmation] = useState<Adjustment | null>(null)
+
+  const amountValue = Number(fAmount)
+  const companyInvalid = fCompany === null
+  const amountInvalid = fAmount.trim() === '' || Number.isNaN(amountValue) || amountValue <= 0
+  const reasonInvalid = fReason.trim().length === 0
+  const formInvalid = companyInvalid || amountInvalid || reasonInvalid
+
+  function openForm() {
+    setFCompany(null)
+    setFDirection('credit')
+    setFAmount('')
+    setFReason('')
+    setFCategory('compensation')
+    setFFileName(null)
+    setTouched(false)
+    setFormOpen(true)
+  }
+
+  function submitForm() {
+    setTouched(true)
+    if (formInvalid || !fCompany) return
+
+    const entry: Adjustment = {
+      id: `adj-local-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      companyId: fCompany.id,
+      companyInn: fCompany.inn,
+      companyName: fCompany.name,
+      direction: fDirection,
+      amount: amountValue,
+      category: fCategory as AdjustmentCategory,
+      reason: fReason.trim(),
+      performedBy: currentAdmin.fullName,
+    }
+
+    setRowsData((prev) => [entry, ...prev])
+    setConfirmation(entry)
+    setFormOpen(false)
+    setPage(1)
+  }
+
+  /* ------------------------------------------------------------------ list */
+  const filtersActive =
+    direction !== 'all' ||
+    category !== 'all' ||
+    admin !== 'all' ||
+    dateFrom !== '' ||
+    dateTo !== ''
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const from = dateFrom === '' ? null : +new Date(dateFrom)
+    const to = dateTo === '' ? null : +new Date(dateTo) + DAY
+
+    return rowsData.filter((a) => {
+      if (direction !== 'all' && a.direction !== direction) return false
+      if (category !== 'all' && a.category !== category) return false
+      if (admin !== 'all' && a.performedBy !== admin) return false
+      const ts = +new Date(a.createdAt)
+      if (from !== null && ts < from) return false
+      if (to !== null && ts >= to) return false
+      if (!q) return true
+      return (
+        a.companyName.toLowerCase().includes(q) ||
+        a.companyInn.includes(q) ||
+        a.reason.toLowerCase().includes(q) ||
+        a.performedBy.toLowerCase().includes(q)
+      )
+    })
+  }, [rowsData, search, direction, category, admin, dateFrom, dateTo])
+
+  const rows = paginate(filtered, page, pageSize)
+
+  function resetFilters() {
+    setDirection('all')
+    setCategory('all')
+    setAdmin('all')
+    setDateFrom('')
+    setDateTo('')
+    setPage(1)
+  }
+
+  const columns: Column<Adjustment>[] = [
+    {
+      key: 'date',
+      header: 'Дата',
+      cell: (a) => (
+        <span className="text-sm whitespace-nowrap text-gray-900">{formatDate(a.createdAt)}</span>
+      ),
+    },
+    {
+      key: 'company',
+      header: 'Компания',
+      cell: (a) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-slate-800">{a.companyName}</span>
+          <span className="text-xs text-gray-500">ИНН {formatInn(a.companyInn)}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'direction',
+      header: 'Направление',
+      cell: (a) => (
+        <span
+          className={cn(
+            'text-sm font-semibold whitespace-nowrap',
+            a.direction === 'credit' ? 'text-emerald-600' : 'text-red-600',
+          )}
+        >
+          {directionShort[a.direction]}
+        </span>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Сумма',
+      cls: 'text-right',
+      cell: (a) => (
+        <span
+          className={cn(
+            'text-sm font-semibold whitespace-nowrap tabular-nums',
+            a.direction === 'credit' ? 'text-emerald-600' : 'text-red-600',
+          )}
+        >
+          {a.direction === 'credit' ? '+' : '−'}
+          {formatMoney(a.amount)}
+        </span>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Категория',
+      cell: (a) => (
+        <span className="text-sm whitespace-nowrap text-gray-900">
+          {adjustmentCategoryLabel[a.category]}
+        </span>
+      ),
+    },
+    {
+      key: 'reason',
+      header: 'Причина',
+      cell: (a) => <span className="text-sm text-gray-600">{a.reason}</span>,
+    },
+    {
+      key: 'performedBy',
+      header: 'Выполнил',
+      cell: (a) => (
+        <span className="text-sm whitespace-nowrap text-gray-900">{a.performedBy}</span>
+      ),
+    },
+  ]
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Ручные корректировки"
+        subtitle={`Начисления и списания по балансам вручную — ${formatNumber(rowsData.length)} записей`}
+        actions={
+          <button
+            type="button"
+            onClick={openForm}
+            className="flex items-center gap-2 rounded-lg bg-Smart-green px-4 py-2.5 text-base font-semibold text-white shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition hover:brightness-105"
+          >
+            <Plus className="size-5" />
+            Новая корректировка
+          </button>
+        }
+      />
+
+      {confirmation && (
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <div className="flex items-start gap-3">
+            <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold text-slate-800">
+                Корректировка проведена:{' '}
+                {confirmation.direction === 'credit' ? 'начисление' : 'списание'}{' '}
+                {formatSum(confirmation.amount)} — {confirmation.companyName}
+              </span>
+              <span className="text-sm text-slate-600">
+                Запись добавлена в «Транзакции» как отдельная проводка и зафиксирована в «Журнале
+                аудита» с вашим именем ({confirmation.performedBy}),{' '}
+                {formatDateTime(confirmation.createdAt)}. Отменить её нельзя — только провести
+                обратную корректировку.
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setConfirmation(null)}
+            className="shrink-0 text-sm font-semibold text-emerald-600 transition hover:underline"
+          >
+            Скрыть
+          </button>
+        </div>
+      )}
+
+      <PageCard>
+        <Toolbar
+          search={search}
+          onSearchChange={(v) => {
+            setSearch(v)
+            setPage(1)
+          }}
+          placeholder="Поиск по компании, ИНН, причине или администратору"
+          filtersActive={showFilters || filtersActive}
+          onToggleFilters={() => setShowFilters((v) => !v)}
+        />
+
+        {showFilters && (
+          <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-3">
+            <Select
+              label="Направление"
+              options={DIRECTION_OPTIONS}
+              value={direction}
+              onChange={(v) => {
+                setDirection(v)
+                setPage(1)
+              }}
+            />
+            <Select
+              label="Категория"
+              options={CATEGORY_FILTER_OPTIONS}
+              value={category}
+              onChange={(v) => {
+                setCategory(v)
+                setPage(1)
+              }}
+            />
+            <Select
+              label="Администратор"
+              options={ADMIN_OPTIONS}
+              value={admin}
+              onChange={(v) => {
+                setAdmin(v)
+                setPage(1)
+              }}
+            />
+            <Input
+              label="Дата с"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value)
+                setPage(1)
+              }}
+            />
+            <Input
+              label="Дата по"
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value)
+                setPage(1)
+              }}
+            />
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={!filtersActive}
+                className={cn(
+                  'pb-2.5 text-sm font-semibold transition',
+                  filtersActive ? 'text-Smart-blue hover:underline' : 'cursor-not-allowed text-gray-400',
+                )}
+              >
+                Сбросить фильтры
+              </button>
+            </div>
+          </div>
+        )}
+
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(a) => a.id}
+          emptyMessage="Корректировки не найдены"
+        />
+
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      </PageCard>
+
+      <Modal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title="Новая корректировка баланса"
+        maxWidth="max-w-xl"
+      >
+        <div className="flex flex-col gap-4 px-6 py-5">
+          <CompanyPicker
+            value={fCompany}
+            onChange={setFCompany}
+            invalid={touched && companyInvalid}
+          />
+
+          {fCompany && (
+            <p className="-mt-2 text-sm text-gray-500">
+              Текущий баланс: <b className="font-semibold text-slate-800">{formatSum(fCompany.balance)}</b>
+            </p>
+          )}
+
+          <div className="flex w-full flex-col items-start gap-1.5">
+            <span className="text-sm font-medium leading-5 text-slate-700">Направление</span>
+            <SegmentedControl<Direction>
+              options={[
+                { value: 'credit', label: directionLabel.credit },
+                { value: 'debit', label: directionLabel.debit },
+              ]}
+              value={fDirection}
+              onChange={setFDirection}
+            />
+          </div>
+
+          <Input
+            label="Сумма"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            placeholder="0"
+            value={fAmount}
+            onChange={(e) => setFAmount(e.target.value)}
+            destructive={touched && amountInvalid}
+            hint={
+              touched && amountInvalid
+                ? 'Укажите сумму больше нуля'
+                : amountInvalid
+                  ? 'Сумма в сумах, без копеек'
+                  : `${fDirection === 'credit' ? 'Начислить' : 'Списать'} ${formatSum(amountValue)}`
+            }
+          />
+
+          <Select
+            label="Категория"
+            options={CATEGORY_FORM_OPTIONS}
+            value={fCategory}
+            onChange={setFCategory}
+          />
+
+          <div className="flex w-full flex-col items-start gap-1.5">
+            <label
+              htmlFor="adjustment-reason"
+              className="text-sm font-medium leading-5 text-slate-700"
+            >
+              Причина<span className="text-red-500"> *</span>
+            </label>
+            <div
+              className={cn(
+                'flex w-full items-center gap-2 overflow-hidden rounded-lg bg-white px-3.5 py-2.5 outline outline-1 outline-offset-[-1px] transition',
+                touched && reasonInvalid
+                  ? 'outline-red-300 focus-within:outline-red-400'
+                  : 'outline-gray-200 focus-within:outline-Smart-blue',
+              )}
+            >
+              <textarea
+                id="adjustment-reason"
+                rows={3}
+                value={fReason}
+                onChange={(e) => setFReason(e.target.value)}
+                placeholder="Опишите основание корректировки — текст попадёт в журнал аудита"
+                className="flex-1 resize-none bg-transparent text-base leading-6 font-normal text-neutral-900 outline-none placeholder:text-gray-500"
+              />
+            </div>
+            <span
+              className={cn(
+                'text-sm leading-5',
+                touched && reasonInvalid ? 'text-red-600' : 'text-gray-500',
+              )}
+            >
+              {touched && reasonInvalid
+                ? 'Причина обязательна'
+                : 'Обязательное поле — свободный текст'}
+            </span>
+          </div>
+
+          <div className="flex w-full flex-col items-start gap-1.5">
+            <span className="text-sm font-medium leading-5 text-slate-700">
+              Вложение <span className="text-gray-500">(необязательно)</span>
+            </span>
+            <label className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 transition hover:bg-gray-50">
+              <Paperclip className="size-5 shrink-0 text-gray-400" />
+              <span
+                className={cn('flex-1 text-base', fFileName ? 'text-neutral-900' : 'text-gray-500')}
+              >
+                {fFileName ?? 'Прикрепить файл-основание'}
+              </span>
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => setFFileName(e.target.files?.[0]?.name ?? null)}
+              />
+            </label>
+          </div>
+
+          <div className="flex items-start gap-2 rounded-lg bg-gray-50 px-3.5 py-2.5">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0 text-gray-400" />
+            <span className="text-sm text-gray-500">
+              Корректировка необратима: она создаёт отдельную проводку в «Транзакциях» и запись в
+              «Журнале аудита» с вашим именем и IP-адресом.
+            </span>
+          </div>
+
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setFormOpen(false)}
+              className="rounded-lg border border-gray-200 px-6 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-gray-50"
+            >
+              Отменить
+            </button>
+            <button
+              type="button"
+              onClick={submitForm}
+              className="rounded-lg bg-Smart-green px-6 py-2.5 text-sm font-semibold text-white shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition hover:brightness-105"
+            >
+              Провести корректировку
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  )
+}

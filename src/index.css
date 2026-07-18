@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+
+@theme {
+  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* Smartup24 Doc brand colors (from Figma) */
+  --color-Smart-blue: #1b9cd8;
+  --color-Smart-green: #43b02a;
+}
+
+:root {
+  font-family: var(--font-sans);
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}

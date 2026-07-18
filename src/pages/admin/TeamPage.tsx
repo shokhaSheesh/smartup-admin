@@ -1,0 +1,470 @@
+import { useMemo, useState } from 'react'
+import { KeyRound, Power, ShieldCheck, ShieldAlert, UserCog, UserPlus } from 'lucide-react'
+import { PageCard, PageHeader } from '@/components/ui/PageCard'
+import { DataTable } from '@/components/ui/DataTable'
+import type { Column } from '@/components/ui/DataTable'
+import { Toolbar } from '@/components/ui/Toolbar'
+import { Select } from '@/components/ui/Select'
+import { Input } from '@/components/ui/Input'
+import { Checkbox } from '@/components/ui/Checkbox'
+import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
+import { RowMenu } from '@/components/ui/RowMenu'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { adminUsers } from '@/data/mock'
+import type { AdminRole, AdminUser } from '@/types/admin'
+import { adminRoleLabel } from '@/types/labels'
+import { formatDate, formatDateTime, formatNumber } from '@/lib/format'
+import { cn } from '@/lib/cn'
+
+const ROLE_IDS = Object.keys(adminRoleLabel) as AdminRole[]
+
+const ROLE_OPTIONS = ROLE_IDS.map((r) => ({ value: r, label: adminRoleLabel[r] }))
+
+const ROLE_FILTER_OPTIONS = [{ value: 'all', label: 'Все роли' }, ...ROLE_OPTIONS]
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'Все статусы' },
+  { value: 'active', label: 'Активен' },
+  { value: 'disabled', label: 'Отключён' },
+]
+
+const adminStatusLabel: Record<AdminUser['status'], string> = {
+  active: 'Активен',
+  disabled: 'Отключён',
+}
+
+/* ------------------------------------------------------------ local helpers */
+
+/** Admin account status badge — same shape as the shared StatusBadge family. */
+function AdminStatusBadge({ status }: { status: AdminUser['status'] }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-md px-3 py-1 text-sm font-medium',
+        status === 'active' ? 'bg-green-100 text-emerald-600' : 'bg-gray-100 text-gray-500',
+      )}
+    >
+      {adminStatusLabel[status]}
+    </span>
+  )
+}
+
+/** Missing 2FA on an admin account is a security risk — surface it in amber. */
+function TwoFaBadge({ enabled }: { enabled: boolean }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium',
+        enabled ? 'bg-green-100 text-emerald-600' : 'bg-amber-50 text-amber-600',
+      )}
+    >
+      {enabled ? <ShieldCheck className="size-4" /> : <ShieldAlert className="size-4" />}
+      {enabled ? 'Включена' : 'Не настроена'}
+    </span>
+  )
+}
+
+type InviteDraft = {
+  fullName: string
+  email: string
+  phone: string
+  role: AdminRole
+  require2fa: boolean
+}
+
+const emptyInvite: InviteDraft = {
+  fullName: '',
+  email: '',
+  phone: '',
+  role: 'support',
+  require2fa: true,
+}
+
+export default function TeamPage() {
+  const [team, setTeam] = useState<AdminUser[]>(adminUsers)
+
+  const [search, setSearch] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [roleFilter, setRoleFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [invite, setInvite] = useState<InviteDraft>(emptyInvite)
+
+  const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null)
+  const [nextRole, setNextRole] = useState<AdminRole>('support')
+
+  const [toggleTarget, setToggleTarget] = useState<AdminUser | null>(null)
+  const [resetTarget, setResetTarget] = useState<AdminUser | null>(null)
+
+  const filtersActive = roleFilter !== 'all' || statusFilter !== 'all'
+
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return team.filter((u) => {
+      if (roleFilter !== 'all' && u.role !== roleFilter) return false
+      if (statusFilter !== 'all' && u.status !== statusFilter) return false
+      if (!q) return true
+      return (
+        u.fullName.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.phone.includes(q)
+      )
+    })
+  }, [team, search, roleFilter, statusFilter])
+
+  const without2fa = team.filter((u) => !u.twofaEnabled && u.status === 'active').length
+
+  const inviteValid =
+    invite.fullName.trim().length > 0 && invite.email.trim().length > 0
+
+  function submitInvite() {
+    if (!inviteValid) return
+    const created: AdminUser = {
+      id: `adm-new-${Date.now()}`,
+      fullName: invite.fullName.trim(),
+      email: invite.email.trim(),
+      phone: invite.phone.trim(),
+      role: invite.role,
+      status: 'active',
+      twofaEnabled: false,
+      lastLoginAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    }
+    setTeam((prev) => [created, ...prev])
+    setInvite(emptyInvite)
+    setInviteOpen(false)
+  }
+
+  function applyRole() {
+    if (!roleTarget) return
+    setTeam((prev) =>
+      prev.map((u) => (u.id === roleTarget.id ? { ...u, role: nextRole } : u)),
+    )
+    setRoleTarget(null)
+  }
+
+  function applyToggle(reason: string) {
+    if (!toggleTarget) return
+    // In a real build the reason travels with the request to the audit log.
+    void reason
+    setTeam((prev) =>
+      prev.map((u) =>
+        u.id === toggleTarget.id
+          ? { ...u, status: u.status === 'active' ? 'disabled' : 'active' }
+          : u,
+      ),
+    )
+    setToggleTarget(null)
+  }
+
+  function apply2faReset(reason: string) {
+    if (!resetTarget) return
+    void reason
+    setTeam((prev) =>
+      prev.map((u) => (u.id === resetTarget.id ? { ...u, twofaEnabled: false } : u)),
+    )
+    setResetTarget(null)
+  }
+
+  const columns: Column<AdminUser>[] = [
+    {
+      key: 'fullName',
+      header: 'ФИО',
+      cell: (u) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-slate-800">{u.fullName}</span>
+          <span className="text-xs text-gray-500">{u.phone}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      cell: (u) => <span className="text-sm whitespace-nowrap text-gray-900">{u.email}</span>,
+    },
+    {
+      key: 'role',
+      header: 'Роль',
+      cell: (u) => (
+        <span className="inline-flex items-center rounded-md bg-blue-50 px-3 py-1 text-sm font-medium text-Smart-blue">
+          {adminRoleLabel[u.role]}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Статус',
+      cell: (u) => <AdminStatusBadge status={u.status} />,
+    },
+    {
+      key: 'lastLogin',
+      header: 'Последний вход',
+      cell: (u) => (
+        <span className="text-sm whitespace-nowrap text-gray-900">
+          {formatDateTime(u.lastLoginAt)}
+        </span>
+      ),
+    },
+    {
+      key: 'twofa',
+      header: '2FA включена',
+      cell: (u) => <TwoFaBadge enabled={u.twofaEnabled} />,
+    },
+    {
+      key: 'createdAt',
+      header: 'Создан',
+      cell: (u) => (
+        <span className="text-sm whitespace-nowrap text-gray-900">{formatDate(u.createdAt)}</span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      cls: 'w-12',
+      cell: (u) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <RowMenu
+            items={[
+              {
+                label: 'Изменить роль',
+                icon: <UserCog className="size-4" />,
+                onClick: () => {
+                  setNextRole(u.role)
+                  setRoleTarget(u)
+                },
+              },
+              {
+                label: 'Сбросить 2FA',
+                icon: <KeyRound className="size-4" />,
+                onClick: () => setResetTarget(u),
+              },
+              u.status === 'active'
+                ? {
+                    label: 'Отключить',
+                    icon: <Power className="size-4" />,
+                    danger: true,
+                    onClick: () => setToggleTarget(u),
+                  }
+                : {
+                    label: 'Включить',
+                    icon: <Power className="size-4" />,
+                    onClick: () => setToggleTarget(u),
+                  },
+            ]}
+          />
+        </div>
+      ),
+    },
+  ]
+
+  const disabling = toggleTarget ? toggleTarget.status === 'active' : false
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Команда администраторов"
+        subtitle={`${formatNumber(team.length)} учётных записей с доступом к панели управления`}
+      />
+
+      {without2fa > 0 && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-500" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-semibold text-amber-700">
+              {formatNumber(without2fa)} активных администраторов без двухфакторной аутентификации
+            </span>
+            <span className="text-sm text-amber-600">
+              Учётные записи с доступом к содержимому документов должны использовать 2FA.
+            </span>
+          </div>
+        </div>
+      )}
+
+      <PageCard>
+        <Toolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Поиск по ФИО, email или телефону"
+          filtersActive={showFilters || filtersActive}
+          onToggleFilters={() => setShowFilters((v) => !v)}
+        >
+          <button
+            type="button"
+            onClick={() => setInviteOpen(true)}
+            className="flex shrink-0 items-center gap-2 rounded-lg bg-Smart-green px-4 py-2.5 text-base font-semibold text-white shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition hover:brightness-105"
+          >
+            <UserPlus className="size-5" />
+            Пригласить администратора
+          </button>
+        </Toolbar>
+
+        {showFilters && (
+          <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-3">
+            <Select
+              label="Роль"
+              options={ROLE_FILTER_OPTIONS}
+              value={roleFilter}
+              onChange={setRoleFilter}
+            />
+            <Select
+              label="Статус"
+              options={STATUS_FILTER_OPTIONS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setRoleFilter('all')
+                  setStatusFilter('all')
+                }}
+                disabled={!filtersActive}
+                className={cn(
+                  'py-2.5 text-sm font-semibold transition',
+                  filtersActive
+                    ? 'text-Smart-blue hover:underline'
+                    : 'cursor-not-allowed text-gray-400',
+                )}
+              >
+                Сбросить фильтры
+              </button>
+            </div>
+          </div>
+        )}
+
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(u) => u.id}
+          emptyMessage="Администраторы не найдены"
+        />
+      </PageCard>
+
+      {/* ------------------------------------------------------- invite modal */}
+      <Modal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        title="Пригласить администратора"
+        maxWidth="max-w-lg"
+      >
+        <div className="flex flex-col gap-4 px-6 py-5">
+          <Input
+            label="ФИО"
+            value={invite.fullName}
+            onChange={(e) => setInvite({ ...invite, fullName: e.target.value })}
+            placeholder="Иванов Иван"
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={invite.email}
+            onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+            placeholder="i.ivanov@smartup24.uz"
+          />
+          <Input
+            label="Телефон"
+            value={invite.phone}
+            onChange={(e) => setInvite({ ...invite, phone: e.target.value })}
+            placeholder="+998 90 000 00 00"
+          />
+          <Select
+            label="Роль"
+            options={ROLE_OPTIONS}
+            value={invite.role}
+            onChange={(v) => setInvite({ ...invite, role: v as AdminRole })}
+          />
+          <Checkbox
+            checked={invite.require2fa}
+            onChange={(v) => setInvite({ ...invite, require2fa: v })}
+          >
+            <span className="text-sm text-slate-700">
+              Требовать 2FA при первом входе
+            </span>
+          </Checkbox>
+
+          <div className="flex items-center justify-end gap-3 pt-1">
+            <Button hierarchy="secondary-gray" onClick={() => setInviteOpen(false)}>
+              Отменить
+            </Button>
+            <Button onClick={submitInvite} disabled={!inviteValid}>
+              Отправить приглашение
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* --------------------------------------------------- change role modal */}
+      <Modal
+        open={roleTarget !== null}
+        onClose={() => setRoleTarget(null)}
+        title="Изменить роль"
+        maxWidth="max-w-md"
+      >
+        <div className="flex flex-col gap-4 px-6 py-5">
+          <p className="text-sm text-slate-600">
+            Администратор:{' '}
+            <b className="font-semibold text-slate-800">{roleTarget?.fullName}</b>
+          </p>
+          <Select
+            label="Новая роль"
+            options={ROLE_OPTIONS}
+            value={nextRole}
+            onChange={(v) => setNextRole(v as AdminRole)}
+          />
+          <p className="text-sm text-gray-500">
+            Изменение роли записывается в журнал аудита.
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <Button hierarchy="secondary-gray" onClick={() => setRoleTarget(null)}>
+              Отменить
+            </Button>
+            <Button onClick={applyRole}>Сохранить</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={toggleTarget !== null}
+        onClose={() => setToggleTarget(null)}
+        onConfirm={applyToggle}
+        title={disabling ? 'Отключить администратора' : 'Включить администратора'}
+        confirmLabel={disabling ? 'Отключить' : 'Включить'}
+        destructive={disabling}
+        description={
+          disabling ? (
+            <>
+              Учётная запись{' '}
+              <b className="font-semibold text-slate-800">{toggleTarget?.fullName}</b> потеряет
+              доступ к панели управления немедленно.
+            </>
+          ) : (
+            <>
+              Учётной записи{' '}
+              <b className="font-semibold text-slate-800">{toggleTarget?.fullName}</b> будет
+              возвращён доступ к панели управления.
+            </>
+          )
+        }
+      />
+
+      <ConfirmDialog
+        open={resetTarget !== null}
+        onClose={() => setResetTarget(null)}
+        onConfirm={apply2faReset}
+        title="Сбросить 2FA"
+        confirmLabel="Сбросить"
+        destructive
+        description={
+          <>
+            Текущее устройство{' '}
+            <b className="font-semibold text-slate-800">{resetTarget?.fullName}</b> будет
+            отвязано. При следующем входе потребуется повторная регистрация второго фактора.
+          </>
+        }
+      />
+    </div>
+  )
+}
