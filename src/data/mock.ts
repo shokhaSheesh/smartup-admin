@@ -418,6 +418,21 @@ const individuals: PlatformUser[] = Array.from({ length: 38 }, (_, i) => ({
 
 export const platformUsers: PlatformUser[] = [...employees, ...individuals]
 
+/** Employees grouped by company, for picking a plausible actor on a document. */
+const employeesByCompanyId = new Map<string, PlatformUser[]>()
+employees.forEach((e) => {
+  const list = employeesByCompanyId.get(e.companyId!) ?? []
+  list.push(e)
+  employeesByCompanyId.set(e.companyId!, list)
+})
+
+/** A random employee of the given company, or null when it has none loaded. */
+function pickEmployeeOf(companyId: string): string | null {
+  const list = employeesByCompanyId.get(companyId)
+  if (!list || list.length === 0) return null
+  return list[Math.floor(rng() * list.length)].id
+}
+
 /* ---------------------------------------------------------------- documents */
 
 const DOC_STATUSES: DocStatus[] = [
@@ -454,6 +469,13 @@ const companyDocuments: AdminDocument[] = Array.from({ length: 420 }, (_, i) => 
   const type: DocType = group.name
   const subtype = group.subtypes.length > 0 ? pick(group.subtypes) : null
 
+  // The sender's side sends it; the receiver's side signs or rejects it.
+  const senderCompanyId = direction === 'outgoing' ? company.id : counterparty.id
+  const receiverCompanyId = direction === 'outgoing' ? counterparty.id : company.id
+  const sentBy = pickEmployeeOf(senderCompanyId)
+  const resolvedBy =
+    status === 'signed' || status === 'rejected' ? pickEmployeeOf(receiverCompanyId) : null
+
   return {
     id: `doc-${i + 1}`,
     number: `${type.replace(/[^А-ЯA-Z]/g, '').slice(0, 3)}-${String(100_000 + i).slice(-6)}`,
@@ -467,6 +489,8 @@ const companyDocuments: AdminDocument[] = Array.from({ length: 420 }, (_, i) => 
     receiverInn: direction === 'outgoing' ? counterparty.inn : company.inn,
     receiverName: direction === 'outgoing' ? counterparty.name : company.name,
     status,
+    sentBy,
+    resolvedBy,
     amount: int(150_000, 480_000_000),
     createdAt: daysAgo(createdDays),
     sentAt: sent,
@@ -516,6 +540,13 @@ const individualDocuments: AdminDocument[] = Array.from({ length: 300 }, (_, i) 
     receiverInn: direction === 'outgoing' ? counterparty.inn : owner.pinfl,
     receiverName: direction === 'outgoing' ? counterparty.name : owner.fullName,
     status,
+    sentBy: direction === 'outgoing' ? owner.id : pickEmployeeOf(counterparty.id),
+    resolvedBy:
+      status === 'signed' || status === 'rejected'
+        ? direction === 'outgoing'
+          ? pickEmployeeOf(counterparty.id)
+          : owner.id
+        : null,
     amount: int(80_000, 40_000_000),
     createdAt: daysAgo(createdDays),
     sentAt: sent,
@@ -536,6 +567,7 @@ export const payments: Payment[] = Array.from({ length: 140 }, (_, i) => {
     id: `pay-${i + 1}`,
     createdAt: daysAgo(int(0, 120)),
     companyId: c.id,
+    actorUserId: pickEmployeeOf(c.id),
     companyInn: c.inn,
     companyName: c.name,
     amount: pick([100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000]),
@@ -812,6 +844,14 @@ export const documentsByCompany = (companyId: string) =>
   documents.filter((d) => d.companyId === companyId)
 export const documentsByUser = (userId: string) =>
   documents.filter((d) => d.userId === userId)
+/** Documents an employee acted on — sent, or signed/rejected. */
+export const documentsByActor = (userId: string) =>
+  documents.filter((d) => d.sentBy === userId || d.resolvedBy === userId)
+export const paymentsByActor = (userId: string) =>
+  payments.filter((p) => p.actorUserId === userId)
+export const userById = (userId: string) => platformUsers.find((u) => u.id === userId)
+export const userNameById = (userId: string | null) =>
+  userId ? (platformUsers.find((u) => u.id === userId)?.fullName ?? null) : null
 export const transactionsByCompany = (companyId: string) =>
   transactions.filter((t) => t.companyId === companyId)
 export const paymentsByCompany = (companyId: string) =>

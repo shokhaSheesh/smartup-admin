@@ -245,10 +245,20 @@ export default function UsersPage() {
                     onClick: () => navigate(`/users/${u.id}`),
                   }
                 : {
-                    label: 'Открыть компанию',
-                    icon: <Building2 className="size-4" />,
-                    onClick: () => u.companyId && navigate(`/tenants/${u.companyId}`),
+                    label: 'Открыть профиль',
+                    icon: <User className="size-4" />,
+                    onClick: () =>
+                      u.companyId && navigate(`/tenants/${u.companyId}/users/${u.id}`),
                   },
+              ...(u.kind === 'employee'
+                ? [
+                    {
+                      label: 'Открыть компанию',
+                      icon: <Building2 className="size-4" />,
+                      onClick: () => u.companyId && navigate(`/tenants/${u.companyId}`),
+                    },
+                  ]
+                : []),
               ...(u.kind === 'individual'
                 ? [
                     {
@@ -397,7 +407,7 @@ export default function UsersPage() {
           onRowClick={(u) =>
             u.kind === 'individual'
               ? navigate(`/users/${u.id}`)
-              : u.companyId && navigate(`/tenants/${u.companyId}`)
+              : u.companyId && navigate(`/tenants/${u.companyId}/users/${u.id}`)
           }
           emptyMessage="Пользователи не найдены"
         />

@@ -41,8 +41,12 @@ export function formatDateTime(iso: string | null): string {
   })}`
 }
 
-/** Formats an ИНН as `397 308 543`. */
+/**
+ * Formats a 9-digit ИНН as `397 308 543`. A 14-digit ПИНФЛ is left alone —
+ * grouping it in threes reads as a malformed ИНН rather than a person's id.
+ */
 export function formatInn(inn: string): string {
+  if (inn.length !== 9) return inn
   return inn.replace(/(\d{3})(?=\d)/g, '$1 ').trim()
 }
 

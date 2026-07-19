@@ -231,6 +231,8 @@ export type Payment = {
   id: string
   createdAt: string
   companyId: string
+  /** Which employee performed the top-up. */
+  actorUserId: string | null
   companyInn: string
   companyName: string
   amount: number
@@ -271,6 +273,10 @@ export type AdminDocument = {
   receiverInn: string
   receiverName: string
   status: DocStatus
+  /** Who sent it — an employee of the sender, or the individual themselves. */
+  sentBy: string | null
+  /** Who signed or rejected it, on the receiving side. */
+  resolvedBy: string | null
   amount: number
   createdAt: string
   sentAt: string | null

@@ -6,6 +6,7 @@ import TenantsPage from './pages/TenantsPage'
 import TenantDetailPage from './pages/TenantDetailPage'
 import UsersPage from './pages/UsersPage'
 import UserDetailPage from './pages/UserDetailPage'
+import EmployeeDetailPage from './pages/EmployeeDetailPage'
 import DocumentsPage from './pages/DocumentsPage'
 import DocumentDetailPage from './pages/DocumentDetailPage'
 import PlansPage from './pages/billing/PlansPage'
@@ -31,6 +32,10 @@ export default function App() {
 
           <Route path="/tenants" element={<TenantsPage />} />
           <Route path="/tenants/:id" element={<TenantDetailPage />} />
+          <Route
+            path="/tenants/:companyId/users/:userId"
+            element={<EmployeeDetailPage />}
+          />
 
           <Route path="/users" element={<UsersPage />} />
           <Route path="/users/:id" element={<UserDetailPage />} />

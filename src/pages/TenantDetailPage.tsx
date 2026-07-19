@@ -28,6 +28,8 @@ import { DOC_TYPES, docTypeLabel } from '@/types/admin'
 import {
   balanceByCompany,
   companyById,
+  userById,
+  userNameById,
   documentsByCompany,
   paymentsByCompany,
   subscriptionByCompany,
@@ -76,6 +78,50 @@ import { cn } from '@/lib/cn'
 
 /** Sentinel for "no filter selected". */
 const ALL = 'all'
+
+/** Appends "· ФИО" when the acting employee is known. */
+function withActor(text: string, userId: string | null): string {
+  const name = userNameById(userId)
+  return name ? `${text} · ${name}` : text
+}
+
+/**
+ * Actor name, linking to their own profile. The actor is not always an employee
+ * of the company being viewed — on an incoming document the sender works for the
+ * counterparty — so the link follows the actor's own company, not this page's.
+ */
+function ActorCell({
+  userId,
+  navigate,
+}: {
+  userId: string | null
+  navigate: (to: string) => void
+}) {
+  const actor = userId ? userById(userId) : undefined
+  if (!actor) return <span className="text-gray-400">—</span>
+
+  const to = actor.companyId
+    ? `/tenants/${actor.companyId}/users/${actor.id}`
+    : `/users/${actor.id}`
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        navigate(to)
+      }}
+      className="flex flex-col items-start text-left"
+    >
+      <span className="whitespace-nowrap font-medium text-Smart-blue hover:underline">
+        {actor.fullName}
+      </span>
+      {actor.companyName && (
+        <span className="text-xs text-gray-500">{actor.companyName}</span>
+      )}
+    </button>
+  )
+}
 
 type FeedItem = {
   id: string
@@ -151,7 +197,7 @@ export default function TenantDetailPage() {
           at: d.sentAt,
           kind: 'doc_sent',
           title: 'Документ отправлен',
-          detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
+          detail: withActor(`${d.number} · ${docTypeLabel(d.type, d.subtype)}`, d.sentBy),
           amount: null,
         })
       }
@@ -161,7 +207,7 @@ export default function TenantDetailPage() {
           at: d.sentAt ?? d.createdAt,
           kind: 'doc_signed',
           title: 'Документ подписан',
-          detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
+          detail: withActor(`${d.number} · ${docTypeLabel(d.type, d.subtype)}`, d.resolvedBy),
           amount: null,
         })
       }
@@ -171,7 +217,7 @@ export default function TenantDetailPage() {
           at: d.sentAt ?? d.createdAt,
           kind: 'doc_rejected',
           title: 'Документ отклонён',
-          detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
+          detail: withActor(`${d.number} · ${docTypeLabel(d.type, d.subtype)}`, d.resolvedBy),
           amount: null,
         })
       }
@@ -185,7 +231,7 @@ export default function TenantDetailPage() {
         at: p.createdAt,
         kind: 'topup',
         title: 'Пополнение баланса',
-        detail: paymentMethodLabel[p.method],
+        detail: withActor(paymentMethodLabel[p.method], p.actorUserId),
         amount: p.amount,
       }))
 
@@ -317,6 +363,21 @@ export default function TenantDetailPage() {
     },
     { key: 'status', header: 'Статус', cell: (d) => <DocStatusBadge status={d.status} /> },
     {
+      key: 'actor',
+      header: 'Кто отправил',
+      cell: (d) => <ActorCell userId={d.sentBy} navigate={navigate} />,
+    },
+    {
+      key: 'resolver',
+      header: 'Кто обработал',
+      cell: (d) =>
+        d.status === 'signed' || d.status === 'rejected' ? (
+          <ActorCell userId={d.resolvedBy} navigate={navigate} />
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+    {
       key: 'amount',
       header: 'Сумма',
       cls: 'text-right',
@@ -439,6 +500,7 @@ export default function TenantDetailPage() {
             columns={userColumns}
             rows={users}
             rowKey={(u) => u.id}
+            onRowClick={(u) => navigate(`/tenants/${company.id}/users/${u.id}`)}
             emptyMessage="Сотрудники не найдены"
           />
         </PageCard>
