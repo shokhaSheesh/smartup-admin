@@ -145,6 +145,10 @@ export type PlatformUser = {
   /** Company role — null for individuals. */
   role: TenantUserRole | null
   authMethod: AuthMethod
+  phone: string
+  /** Individuals hold their own address and balance; employees bill to the company. */
+  address: string | null
+  balance: number | null
   status: UserStatus
   lastLoginAt: string
   registeredAt: string

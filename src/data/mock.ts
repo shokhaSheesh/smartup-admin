@@ -381,6 +381,10 @@ const employees: PlatformUser[] = companies.flatMap((c, ci) => {
         : chance(0.25)
           ? 'company_eimzo'
           : 'login_password') as AuthMethod,
+      phone: phone(),
+      // Employees bill to the company, so they hold no address or balance of their own.
+      address: null,
+      balance: null,
       status: c.status === 'suspended' ? 'blocked' : chance(0.07) ? 'blocked' : 'active',
       lastLoginAt: daysAgo(int(0, 90)),
       registeredAt: c.createdAt,
@@ -399,6 +403,9 @@ const individuals: PlatformUser[] = Array.from({ length: 38 }, (_, i) => ({
   companyName: null,
   role: null,
   authMethod: 'personal_eimzo' as AuthMethod,
+  phone: phone(),
+  address: `${pick(REGIONS)}, ул. ${pick(['Амира Темура', 'Навои', 'Мустакиллик', 'Бабура', 'Шота Руставели'])}, ${int(1, 180)}`,
+  balance: chance(0.12) ? 0 : int(5_000, 900_000),
   status: chance(0.06) ? 'blocked' : 'active',
   lastLoginAt: daysAgo(int(0, 120)),
   registeredAt: daysAgo(int(10, 380)),

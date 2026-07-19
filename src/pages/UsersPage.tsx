@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Lock, LockOpen, User, Users } from 'lucide-react'
+import { Building2, Lock, LockOpen, User } from 'lucide-react'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
@@ -9,7 +9,7 @@ import { Pagination, paginate, PAGE_SIZES } from '@/components/ui/Pagination'
 import { Select } from '@/components/ui/Select'
 import { Tabs } from '@/components/ui/Tabs'
 import { StatCard } from '@/components/ui/StatCard'
-import { UserKindBadge, UserStatusBadge } from '@/components/ui/StatusBadge'
+import { UserStatusBadge } from '@/components/ui/StatusBadge'
 import { RowMenu } from '@/components/ui/RowMenu'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { companies, platformUsers } from '@/data/mock'
@@ -25,13 +25,12 @@ import {
   userKindLabel,
   userStatusLabel,
 } from '@/types/labels'
-import { formatDateTime, formatInn, formatNumber } from '@/lib/format'
+import { formatDateTime, formatInn, formatMoney, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const ALL = 'all'
 
 const kindTabs = [
-  { key: ALL, label: 'Все' },
   { key: 'individual', label: 'Физические лица' },
   { key: 'employee', label: 'Сотрудники компаний' },
 ]
@@ -70,7 +69,7 @@ export default function UsersPage() {
 
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [kind, setKind] = useState<string>(ALL)
+  const [kind, setKind] = useState<string>('individual')
   const [role, setRole] = useState(ALL)
   const [status, setStatus] = useState(ALL)
   const [companyId, setCompanyId] = useState(ALL)
@@ -85,15 +84,13 @@ export default function UsersPage() {
 
   const statusOf = (u: PlatformUser): UserStatus => overrides[u.id] ?? u.status
 
-  /** Role and company only apply to employees. */
-  const employeeOnlyFilters = kind !== 'individual'
+  const showingIndividuals = kind === 'individual'
 
   const filtersActive =
     role !== ALL || status !== ALL || companyId !== ALL || authMethod !== ALL
 
   const counts = useMemo(
     () => ({
-      [ALL]: platformUsers.length,
       individual: platformUsers.filter((u) => u.kind === 'individual').length,
       employee: platformUsers.filter((u) => u.kind === 'employee').length,
     }),
@@ -103,7 +100,7 @@ export default function UsersPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return platformUsers.filter((u) => {
-      if (kind !== ALL && u.kind !== kind) return false
+      if (u.kind !== kind) return false
       if (role !== ALL && u.role !== role) return false
       if (status !== ALL && (overrides[u.id] ?? u.status) !== status) return false
       if (companyId !== ALL && u.companyId !== companyId) return false
@@ -148,11 +145,6 @@ export default function UsersPage() {
       ),
     },
     {
-      key: 'kind',
-      header: 'Тип',
-      cell: (u) => <UserKindBadge kind={u.kind} />,
-    },
-    {
       key: 'company',
       header: 'Компания',
       cell: (u) =>
@@ -176,6 +168,33 @@ export default function UsersPage() {
         ) : (
           <span className="text-sm text-gray-400">—</span>
         ),
+    },
+    {
+      key: 'phone',
+      header: 'Телефон',
+      cell: (u) => (
+        <span className="text-sm whitespace-nowrap text-gray-900">{u.phone}</span>
+      ),
+    },
+    {
+      key: 'address',
+      header: 'Адрес',
+      cell: (u) => <span className="text-sm text-gray-900">{u.address ?? '—'}</span>,
+    },
+    {
+      key: 'balance',
+      header: 'Баланс',
+      cls: 'text-right',
+      cell: (u) => (
+        <span
+          className={cn(
+            'text-sm font-medium whitespace-nowrap tabular-nums',
+            (u.balance ?? 0) <= 0 ? 'text-red-600' : 'text-slate-800',
+          )}
+        >
+          {u.balance === null ? '—' : formatMoney(u.balance)}
+        </span>
+      ),
     },
     {
       key: 'auth',
@@ -236,13 +255,6 @@ export default function UsersPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 sm:flex-row">
         <StatCard
-          value={formatNumber(counts[ALL])}
-          label="Всего пользователей"
-          icon={Users}
-          iconBg="bg-blue-50"
-          iconColor="text-Smart-blue"
-        />
-        <StatCard
           value={formatNumber(counts.individual)}
           label="Физические лица"
           icon={User}
@@ -274,19 +286,19 @@ export default function UsersPage() {
         {showFilters && (
           <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <Select
-              label="Способ входа"
-              options={AUTH_OPTIONS}
-              value={authMethod}
-              onChange={resetPage(setAuthMethod)}
-            />
-            <Select
               label="Статус"
               options={STATUS_OPTIONS}
               value={status}
               onChange={resetPage(setStatus)}
             />
-            {employeeOnlyFilters && (
+            {!showingIndividuals && (
               <>
+                <Select
+                  label="Способ входа"
+                  options={AUTH_OPTIONS}
+                  value={authMethod}
+                  onChange={resetPage(setAuthMethod)}
+                />
                 <Select
                   label="Роль в компании"
                   options={ROLE_OPTIONS}
@@ -334,15 +346,19 @@ export default function UsersPage() {
             if (k === 'individual') {
               setRole(ALL)
               setCompanyId(ALL)
+              setAuthMethod(ALL)
             }
             setPage(1)
           }}
         />
 
         <DataTable
-          columns={columns.filter(
-            // Individuals have no company or role — hide those columns entirely.
-            (c) => !(kind === 'individual' && (c.key === 'company' || c.key === 'role')),
+          columns={columns.filter((c) =>
+            showingIndividuals
+              // Individuals have no company or role, and their sign-in method is
+              // always a personal E-IMZO key — so neither column carries meaning.
+              ? !['company', 'role', 'auth'].includes(c.key)
+              : !['phone', 'address', 'balance'].includes(c.key),
           )}
           rows={rows}
           rowKey={(u) => u.id}
