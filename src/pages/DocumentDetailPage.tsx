@@ -141,17 +141,22 @@ export default function DocumentDetailPage() {
     id: string
     at: string
     title: string
-    by: string
+    by?: string
     note?: string
     icon: ReactNode
   }> = []
+
+  // Name a person only when they act for the document's own side. Sending is
+  // the owner's action on outgoing documents; signing and rejecting are the
+  // owner's on incoming ones. The counterparty's staff are never named here.
+  const outgoing = doc.direction === 'outgoing'
 
   if (doc.sentAt) {
     changeLog.push({
       id: 'sent',
       at: doc.sentAt,
       title: 'Документ отправлен',
-      by: userNameById(doc.sentBy) ?? doc.senderName,
+      by: outgoing ? (userNameById(doc.sentBy) ?? undefined) : undefined,
       icon: <Send className="size-4 text-Smart-blue" />,
     })
   }
@@ -160,7 +165,7 @@ export default function DocumentDetailPage() {
       id: 'signed',
       at: doc.resolvedAt,
       title: 'Документ подписан',
-      by: userNameById(doc.resolvedBy) ?? doc.receiverName,
+      by: outgoing ? undefined : (userNameById(doc.resolvedBy) ?? undefined),
       icon: <FileCheck className="size-4 text-emerald-600" />,
     })
   }
@@ -169,7 +174,7 @@ export default function DocumentDetailPage() {
       id: 'rejected',
       at: doc.resolvedAt,
       title: 'Документ отклонён',
-      by: userNameById(doc.resolvedBy) ?? doc.receiverName,
+      by: outgoing ? undefined : (userNameById(doc.resolvedBy) ?? undefined),
       icon: <FileX className="size-4 text-red-500" />,
     })
   }
@@ -178,7 +183,7 @@ export default function DocumentDetailPage() {
       id: 'cancelled',
       at: doc.resolvedAt,
       title: 'Документ отменён',
-      by: userNameById(doc.sentBy) ?? doc.senderName,
+      by: outgoing ? (userNameById(doc.sentBy) ?? undefined) : undefined,
       icon: <Ban className="size-4 text-gray-400" />,
     })
   }
@@ -236,7 +241,7 @@ export default function DocumentDetailPage() {
                 </div>
                 <div className="flex flex-1 flex-col gap-0.5">
                   <span className="text-sm font-medium text-slate-800">{e.title}</span>
-                  <span className="text-sm text-gray-500">{e.by}</span>
+                  {e.by && <span className="text-sm text-gray-500">{e.by}</span>}
                   {e.note && <span className="text-xs text-gray-400">{e.note}</span>}
                 </div>
                 <span className="text-xs whitespace-nowrap text-gray-400">
