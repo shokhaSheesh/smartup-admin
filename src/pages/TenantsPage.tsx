@@ -1,8 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, Ban, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Download, Ban, CheckCircle2, ExternalLink, Pencil } from 'lucide-react'
 import type { Company, TenantStatus, BillingMode } from '@/types/admin'
-import { companies, plans, subscriptionByCompany } from '@/data/mock'
+import { companies, plans } from '@/data/mock'
+import {
+  applyBalanceAdjustment,
+  applyTenantEdit,
+  effectiveTerms,
+  useTenantEdits,
+  type EffectiveTerms,
+} from '@/data/tenantEdits'
+import { TariffEditModal } from '@/components/tenants/TariffEditModal'
 import { billingModeLabel, tenantStatusLabel } from '@/types/labels'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { Toolbar } from '@/components/ui/Toolbar'
@@ -19,6 +27,9 @@ import { cn } from '@/lib/cn'
 
 const ANY = 'all'
 
+/** A company row with its effective tariff terms resolved. */
+type Row = Company & { terms: EffectiveTerms }
+
 const statusTabs: Array<{ key: string; label: string; pill: string }> = [
   { key: ANY, label: 'Все', pill: 'bg-gray-300' },
   { key: 'active', label: 'Активные', pill: 'bg-green-400' },
@@ -26,7 +37,7 @@ const statusTabs: Array<{ key: string; label: string; pill: string }> = [
 ]
 
 /** Client-side CSV export — semicolon-separated with a BOM so Excel reads Cyrillic. */
-function exportCompaniesCsv(rows: Company[]) {
+function exportCompaniesCsv(rows: Row[]) {
   const headers = [
     'Название',
     'ИНН',
@@ -43,7 +54,7 @@ function exportCompaniesCsv(rows: Company[]) {
     c.inn,
     formatMoney(c.balance),
     c.planName ?? '—',
-    formatDate(subscriptionByCompany(c.id)?.periodEnd ?? null),
+    formatDate(c.terms.periodEnd),
     String(c.employees),
     String(c.docsSentThisMonth),
     tenantStatusLabel[c.status],
@@ -75,16 +86,26 @@ export default function TenantsPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
 
-  /** Local status overrides — no backend, mutations live in state. */
-  const [overrides, setOverrides] = useState<Record<string, TenantStatus>>({})
   const [blockTarget, setBlockTarget] = useState<Company | null>(null)
+  const [editTarget, setEditTarget] = useState<Company | null>(null)
+  const [banner, setBanner] = useState<string | null>(null)
 
-  const rows = useMemo<Company[]>(
+  /** Admin edits live in a shared store so the detail page stays in sync. */
+  const edits = useTenantEdits()
+
+  const rows = useMemo<Row[]>(
     () =>
-      companies.map((c) =>
-        overrides[c.id] ? { ...c, status: overrides[c.id] } : c,
-      ),
-    [overrides],
+      companies.map((c) => {
+        const terms = effectiveTerms(c, edits)
+        return {
+          ...c,
+          status: terms.status,
+          balance: terms.balance,
+          planName: terms.planName,
+          terms,
+        }
+      }),
+    [edits],
   )
 
   const regionOptions = useMemo(() => {
@@ -143,7 +164,7 @@ export default function TenantsPage() {
     }
   }
 
-  const columns: Column<Company>[] = [
+  const columns: Column<Row>[] = [
     {
       key: 'name',
       header: 'Название',
@@ -183,12 +204,12 @@ export default function TenantsPage() {
       key: 'planExpiry',
       header: 'Действует до',
       cell: (c) => {
-        const sub = subscriptionByCompany(c.id)
-        if (!sub) return <span className="text-gray-400">—</span>
-        const left = daysUntil(sub.periodEnd)
+        const end = c.terms.periodEnd
+        if (!end) return <span className="text-gray-400">—</span>
+        const left = daysUntil(end)
         return (
           <div className="flex flex-col whitespace-nowrap">
-            <span>{formatDate(sub.periodEnd)}</span>
+            <span>{formatDate(end)}</span>
             <span
               className={cn(
                 'text-xs',
@@ -205,13 +226,41 @@ export default function TenantsPage() {
       key: 'employees',
       header: 'Сотрудники',
       cls: 'text-right',
-      cell: (c) => <span className="tabular-nums">{formatNumber(c.employees)}</span>,
+      cell: (c) => (
+        <span className="whitespace-nowrap tabular-nums">
+          {formatNumber(c.employees)}
+          {c.terms.maxEmployees !== null && (
+            <span
+              className={cn(
+                c.employees > c.terms.maxEmployees ? 'text-red-600' : 'text-gray-400',
+              )}
+            >
+              {' / '}
+              {formatNumber(c.terms.maxEmployees)}
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       key: 'docs',
       header: 'Отправлено док. (за месяц)',
       cls: 'text-right',
-      cell: (c) => <span className="tabular-nums">{formatNumber(c.docsSentThisMonth)}</span>,
+      cell: (c) => (
+        <span className="whitespace-nowrap tabular-nums">
+          {formatNumber(c.docsSentThisMonth)}
+          {c.terms.docQuota !== null && (
+            <span
+              className={cn(
+                c.docsSentThisMonth > c.terms.docQuota ? 'text-red-600' : 'text-gray-400',
+              )}
+            >
+              {' / '}
+              {formatNumber(c.terms.docQuota)}
+            </span>
+          )}
+        </span>
+      ),
     },
     { key: 'status', header: 'Статус', cell: (c) => <TenantStatusBadge status={c.status} /> },
     {
@@ -231,6 +280,11 @@ export default function TenantsPage() {
                 label: 'Открыть',
                 icon: <ExternalLink className="size-4" />,
                 onClick: () => navigate(`/tenants/${c.id}`),
+              },
+              {
+                label: 'Изменить тариф',
+                icon: <Pencil className="size-4" />,
+                onClick: () => setEditTarget(c),
               },
               c.status === 'suspended'
                 ? {
@@ -255,6 +309,20 @@ export default function TenantsPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {banner && (
+        <div className="flex items-start gap-2 rounded-lg bg-green-100 px-4 py-3">
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+          <span className="flex-1 text-sm text-emerald-700">{banner}</span>
+          <button
+            type="button"
+            onClick={() => setBanner(null)}
+            className="text-sm font-semibold text-emerald-700 transition hover:underline"
+          >
+            Скрыть
+          </button>
+        </div>
+      )}
+
       <PageCard>
         <PageHeader
           title="Компании"
@@ -366,10 +434,25 @@ export default function TenantsPage() {
         }
         onConfirm={() => {
           if (!blockTarget) return
-          setOverrides((prev) => ({
-            ...prev,
-            [blockTarget.id]: unblocking ? 'active' : 'suspended',
-          }))
+          applyTenantEdit(blockTarget.id, {
+            status: unblocking ? 'active' : 'suspended',
+          })
+        }}
+      />
+
+      <TariffEditModal
+        open={editTarget !== null}
+        onClose={() => setEditTarget(null)}
+        company={editTarget}
+        onSave={(companyId, patch, reason, adjustment) => {
+          applyTenantEdit(companyId, patch)
+          if (adjustment) applyBalanceAdjustment(companyId, adjustment)
+          const name = companies.find((c) => c.id === companyId)?.name ?? ''
+          setBanner(
+            adjustment
+              ? `«${name}»: тариф и баланс обновлены. Причина: ${reason || adjustment.reason}`
+              : `«${name}»: тариф обновлён. Причина: ${reason}`,
+          )
         }}
       />
     </div>

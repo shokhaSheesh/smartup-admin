@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   StickyNote,
   Wallet,
+  Wand2,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type {
@@ -48,6 +49,13 @@ import {
   UserStatusBadge,
 } from '@/components/ui/StatusBadge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { TariffEditModal } from '@/components/tenants/TariffEditModal'
+import {
+  applyBalanceAdjustment,
+  applyTenantEdit,
+  effectiveTerms,
+  useTenantEdits,
+} from '@/data/tenantEdits'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -90,7 +98,8 @@ export default function TenantDetailPage() {
   const company = companyById(id)
 
   const [tab, setTab] = useState('overview')
-  const [statusOverride, setStatusOverride] = useState<TenantStatus | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const edits = useTenantEdits()
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [noteOpen, setNoteOpen] = useState(false)
   const [noteText, setNoteText] = useState('')
@@ -162,7 +171,9 @@ export default function TenantDetailPage() {
     )
   }
 
-  const status = statusOverride ?? company.status
+  const terms = effectiveTerms(company, edits)
+  const status = terms.status
+  const quotaTotal = terms.docQuota ?? subscriptionByCompany(company.id)?.quotaTotal ?? 0
   const blocked = status === 'suspended'
   const subscription = subscriptionByCompany(company.id)
   const balance = balanceByCompany(company.id)
@@ -172,12 +183,17 @@ export default function TenantDetailPage() {
       ? subscription
       : null
 
-  const mode = exhaustedSub || overageMode === 'payg' ? 'hybrid' : company.billingMode
+  const mode =
+    exhaustedSub || overageMode === 'payg'
+      ? 'hybrid'
+      : terms.planId
+        ? 'subscription'
+        : company.billingMode
 
   function applyPending(reason: string) {
     if (!pending) return
     if (pending.kind === 'status') {
-      setStatusOverride(pending.next)
+      applyTenantEdit(company!.id, { status: pending.next })
       setBanner(
         `Статус изменён на «${pending.next === 'suspended' ? 'Приостановлена' : 'Активна'}». Причина: ${reason}`,
       )
@@ -306,9 +322,9 @@ export default function TenantDetailPage() {
                 hierarchy="secondary-gray"
                 size="md"
                 leadingIcon={<Pencil className="size-4" />}
-                onClick={() => setBanner('Режим редактирования доступен в форме компании.')}
+                onClick={() => setEditOpen(true)}
               >
-                Редактировать
+                Изменить тариф
               </Button>
               <Button
                 hierarchy="secondary-gray"
@@ -466,7 +482,7 @@ export default function TenantDetailPage() {
                   {customPrice !== null ? 'кастомная цена' : 'по объёмному уровню'}
                 </span>
               </Field>
-              <Field label="Отправлено документов за 30 дней">
+              <Field label="Отправлено документов за месяц">
                 {formatNumber(company.docsSentThisMonth)}
               </Field>
               <Field label="Доплата сверх квоты включена">
@@ -478,12 +494,24 @@ export default function TenantDetailPage() {
           {subscription ? (
             <FormCard
               title="Подписка"
-              action={<SubscriptionStatusBadge status={subscription.status} />}
+              action={
+                <div className="flex items-center gap-3">
+                  <SubscriptionStatusBadge status={subscription.status} />
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    className="text-sm font-semibold text-Smart-blue transition hover:underline"
+                  >
+                    Изменить тариф
+                  </button>
+                </div>
+              }
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="План">{subscription.planName}</Field>
+                <Field label="План">{terms.planName ?? subscription.planName}</Field>
                 <Field label="Период">
-                  {formatDate(subscription.periodStart)} — {formatDate(subscription.periodEnd)}
+                  {formatDate(subscription.periodStart)} —{' '}
+                  {formatDate(terms.periodEnd ?? subscription.periodEnd)}
                 </Field>
                 <Field label="Автопродление">{subscription.autoRenew ? 'Включено' : 'Выключено'}</Field>
                 <Field label="Оплачено">{formatSum(subscription.amountPaid)}</Field>
@@ -493,8 +521,8 @@ export default function TenantDetailPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-slate-700">Использование квоты</span>
                   <span className="tabular-nums text-slate-600">
-                    {formatNumber(subscription.quotaUsed)} / {formatNumber(subscription.quotaTotal)}{' '}
-                    ({percent(subscription.quotaUsed, subscription.quotaTotal)}%)
+                    {formatNumber(subscription.quotaUsed)} / {formatNumber(quotaTotal)}{' '}
+                    ({percent(subscription.quotaUsed, quotaTotal)}%)
                   </span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
@@ -503,12 +531,12 @@ export default function TenantDetailPage() {
                       'h-full rounded-full transition',
                       subscription.status === 'quota_exhausted'
                         ? 'bg-orange-500'
-                        : percent(subscription.quotaUsed, subscription.quotaTotal) >= 80
+                        : percent(subscription.quotaUsed, quotaTotal) >= 80
                           ? 'bg-amber-400'
                           : 'bg-Smart-blue',
                     )}
                     style={{
-                      width: `${percent(subscription.quotaUsed, subscription.quotaTotal)}%`,
+                      width: `${percent(subscription.quotaUsed, quotaTotal)}%`,
                     }}
                   />
                 </div>
@@ -525,8 +553,60 @@ export default function TenantDetailPage() {
                 </Field>
               </div>
             </FormCard>
+          ) : terms.planId ? (
+            /* No subscription record, but an admin has assigned a plan by hand. */
+            <FormCard
+              title="Подписка"
+              action={
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  className="text-sm font-semibold text-Smart-blue transition hover:underline"
+                >
+                  Изменить тариф
+                </button>
+              }
+            >
+              <div className="mb-4 flex items-start gap-2 rounded-lg bg-Smart-blue/5 px-3.5 py-2.5">
+                <Wand2 className="mt-0.5 size-4 shrink-0 text-Smart-blue" />
+                <span className="text-sm text-slate-600">
+                  План назначен администратором вручную.
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="План">{terms.planName ?? '—'}</Field>
+                <Field label="Действует до">{formatDate(terms.periodEnd)}</Field>
+                <Field label="Квота документов">
+                  {terms.docQuota === null ? '—' : formatNumber(terms.docQuota)}
+                  {terms.quotaOverridden && (
+                    <span className="ml-2 inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600">
+                      изменено
+                    </span>
+                  )}
+                </Field>
+                <Field label="Лимит сотрудников">
+                  {terms.maxEmployees === null ? '—' : formatNumber(terms.maxEmployees)}
+                  {terms.employeesOverridden && (
+                    <span className="ml-2 inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600">
+                      изменено
+                    </span>
+                  )}
+                </Field>
+              </div>
+            </FormCard>
           ) : (
-            <FormCard title="Подписка">
+            <FormCard
+              title="Подписка"
+              action={
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  className="text-sm font-semibold text-Smart-blue transition hover:underline"
+                >
+                  Назначить план
+                </button>
+              }
+            >
               <p className="text-sm text-gray-500">
                 У компании нет подписки — оплата производится за каждый отправленный документ с
                 предоплаченного баланса.
@@ -558,10 +638,10 @@ export default function TenantDetailPage() {
                 <span
                   className={cn(
                     'text-2xl leading-8 font-bold',
-                    company.balance < 0 ? 'text-red-600' : 'text-slate-800',
+                    terms.balance < 0 ? 'text-red-600' : 'text-slate-800',
                   )}
                 >
-                  {formatSum(company.balance)}
+                  {formatSum(terms.balance)}
                 </span>
               </Field>
               <Field label="Бесплатный лимит (месяц)">
@@ -826,6 +906,21 @@ export default function TenantDetailPage() {
           </div>
         </div>
       </Modal>
+
+      <TariffEditModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        company={company}
+        onSave={(companyId, patch, reason, adjustment) => {
+          applyTenantEdit(companyId, patch)
+          if (adjustment) applyBalanceAdjustment(companyId, adjustment)
+          setBanner(
+            adjustment
+              ? `Тариф и баланс обновлены. Причина: ${reason || adjustment.reason}`
+              : `Тариф обновлён. Причина: ${reason}`,
+          )
+        }}
+      />
 
       <FileTextSpacer />
     </div>
