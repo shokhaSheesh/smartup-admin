@@ -6,11 +6,9 @@ import {
   CreditCard,
   FileText,
   Info,
-  Pencil,
   RefreshCw,
   Repeat,
   ShieldAlert,
-  StickyNote,
   Wallet,
   Wand2,
 } from 'lucide-react'
@@ -25,7 +23,6 @@ import {
   balanceByCompany,
   companyById,
   documentsByCompany,
-  effectivePricePerDoc,
   paymentsByCompany,
   subscriptionByCompany,
   transactionsByCompany,
@@ -101,9 +98,6 @@ export default function TenantDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const edits = useTenantEdits()
   const [pending, setPending] = useState<PendingAction | null>(null)
-  const [noteOpen, setNoteOpen] = useState(false)
-  const [noteText, setNoteText] = useState('')
-  const [notes, setNotes] = useState<Array<{ id: string; at: string; text: string }>>([])
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [adjustAmount, setAdjustAmount] = useState('')
   const [adjustDirection, setAdjustDirection] = useState<'credit' | 'debit'>('credit')
@@ -177,7 +171,6 @@ export default function TenantDetailPage() {
   const blocked = status === 'suspended'
   const subscription = subscriptionByCompany(company.id)
   const balance = balanceByCompany(company.id)
-  const price = customPrice ?? effectivePricePerDoc(company)
   const exhaustedSub =
     subscription && subscription.status === 'quota_exhausted' && overageMode === null
       ? subscription
@@ -213,24 +206,12 @@ export default function TenantDetailPage() {
 
   const userColumns: Column<TenantUser>[] = [
     { key: 'name', header: 'ФИО', cell: (u) => <span className="font-medium text-slate-800">{u.fullName}</span> },
-    { key: 'pinfl', header: 'ПИНФЛ', cell: (u) => <span className="whitespace-nowrap">{u.pinfl}</span> },
     { key: 'role', header: 'Роль', cell: (u) => tenantUserRoleLabel[u.role] },
-    { key: 'email', header: 'Email', cell: (u) => u.email },
-    { key: 'phone', header: 'Телефон', cell: (u) => <span className="whitespace-nowrap">{u.phone}</span> },
     { key: 'status', header: 'Статус', cell: (u) => <UserStatusBadge status={u.status} /> },
     {
       key: 'login',
       header: 'Последний вход',
       cell: (u) => <span className="whitespace-nowrap">{formatDateTime(u.lastLoginAt)}</span>,
-    },
-    {
-      key: 'eimzo',
-      header: 'E-Imzo привязан',
-      cell: (u) => (
-        <span className={cn('text-sm font-medium', u.eimzoBound ? 'text-emerald-600' : 'text-gray-400')}>
-          {u.eimzoBound ? 'Да' : 'Нет'}
-        </span>
-      ),
     },
   ]
 
@@ -318,22 +299,6 @@ export default function TenantDetailPage() {
           actions={
             <>
               <TenantStatusBadge status={status} />
-              <Button
-                hierarchy="secondary-gray"
-                size="md"
-                leadingIcon={<Pencil className="size-4" />}
-                onClick={() => setEditOpen(true)}
-              >
-                Изменить тариф
-              </Button>
-              <Button
-                hierarchy="secondary-gray"
-                size="md"
-                leadingIcon={<StickyNote className="size-4" />}
-                onClick={() => setNoteOpen(true)}
-              >
-                Добавить заметку
-              </Button>
               <button
                 type="button"
                 onClick={() =>
@@ -367,22 +332,12 @@ export default function TenantDetailPage() {
               <Field label="Адрес">{company.address}</Field>
               <Field label="Регион">{company.region}</Field>
               <Field label="ОКЭД">{company.oked}</Field>
-              <Field label="Директор (ПИНФЛ)">{company.directorPinfl}</Field>
               <Field label="Директор (ФИО)">{company.directorName}</Field>
-              <Field label="Глав. бухгалтер (ПИНФЛ)">{company.accountantPinfl}</Field>
+              <Field label="Директор (ПИНФЛ)">{company.directorPinfl}</Field>
+              <Field label="Телефон директора">{company.phone}</Field>
               <Field label="Глав. бухгалтер (ФИО)">{company.accountantName}</Field>
-              <Field label="Телефон">{company.phone}</Field>
-              <Field label="Моб. телефон">{company.mobile}</Field>
-              <Field label="Email">{company.email}</Field>
-              <Field label="Веб-сайт">{company.website}</Field>
-            </div>
-          </FormCard>
-
-          <FormCard title="Банковские реквизиты">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="МФО / SWIFT">{company.mfo}</Field>
-              <Field label="Название банка">{company.bankName}</Field>
-              <Field label="Расчётный счёт">{company.accountNumber}</Field>
+              <Field label="Глав. бухгалтер (ПИНФЛ)">{company.accountantPinfl}</Field>
+              <Field label="Телефон бухгалтера">{company.mobile}</Field>
             </div>
           </FormCard>
 
@@ -392,26 +347,10 @@ export default function TenantDetailPage() {
               <Field label="Статус">
                 <TenantStatusBadge status={status} />
               </Field>
-              <Field label="Причина статуса">
-                {company.statusReason ?? <span className="text-gray-400">—</span>}
-              </Field>
               <Field label="Последний вход">{formatDateTime(company.lastActiveAt)}</Field>
-              <Field label="Источник">{company.source}</Field>
             </div>
           </FormCard>
 
-          {notes.length > 0 && (
-            <FormCard title="Внутренние заметки">
-              <div className="flex flex-col gap-3">
-                {notes.map((n) => (
-                  <div key={n.id} className="rounded-lg border border-gray-200 px-3.5 py-2.5">
-                    <div className="text-xs text-gray-500">{formatDateTime(n.at)}</div>
-                    <div className="text-sm text-slate-800">{n.text}</div>
-                  </div>
-                ))}
-              </div>
-            </FormCard>
-          )}
         </div>
       )}
 
@@ -476,17 +415,8 @@ export default function TenantDetailPage() {
               <Field label="Режим биллинга">
                 <BillingModeBadge mode={mode} />
               </Field>
-              <Field label="Эффективная цена за документ">
-                <span className="font-semibold text-slate-800">{formatSum(price)}</span>
-                <span className="ml-2 text-xs text-gray-500">
-                  {customPrice !== null ? 'кастомная цена' : 'по объёмному уровню'}
-                </span>
-              </Field>
               <Field label="Отправлено документов за месяц">
                 {formatNumber(company.docsSentThisMonth)}
-              </Field>
-              <Field label="Доплата сверх квоты включена">
-                {overageMode === 'payg' || subscription?.overageMode === 'payg' ? 'Да' : 'Нет'}
               </Field>
             </div>
           </FormCard>
@@ -513,7 +443,6 @@ export default function TenantDetailPage() {
                   {formatDate(subscription.periodStart)} —{' '}
                   {formatDate(terms.periodEnd ?? subscription.periodEnd)}
                 </Field>
-                <Field label="Автопродление">{subscription.autoRenew ? 'Включено' : 'Выключено'}</Field>
                 <Field label="Оплачено">{formatSum(subscription.amountPaid)}</Field>
               </div>
 
@@ -652,11 +581,6 @@ export default function TenantDetailPage() {
               <Field label="Последнее пополнение">
                 {balance?.lastTopUpAt ? formatDateTime(balance.lastTopUpAt) : '—'}
               </Field>
-              <Field label="Всего пополнено / израсходовано">
-                {balance
-                  ? `${formatSum(balance.totalToppedUp)} / ${formatSum(balance.totalConsumed)}`
-                  : '—'}
-              </Field>
             </div>
           </FormCard>
 
@@ -780,47 +704,6 @@ export default function TenantDetailPage() {
               : `Компания: ${company.name} (ИНН ${formatInn(company.inn)}).`
         }
       />
-
-      <Modal
-        open={noteOpen}
-        onClose={() => setNoteOpen(false)}
-        title="Внутренняя заметка"
-        maxWidth="max-w-lg"
-      >
-        <div className="flex flex-col gap-4 px-6 py-5">
-          <div className="flex w-full flex-col items-start gap-1.5">
-            <span className="text-sm leading-5 font-medium text-slate-700">Текст заметки</span>
-            <div className="flex w-full items-center gap-2 overflow-hidden rounded-lg bg-white px-3.5 py-2.5 outline outline-1 outline-offset-[-1px] outline-gray-200 transition focus-within:outline-Smart-blue">
-              <textarea
-                rows={4}
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder="Видна только сотрудникам Smartup24"
-                className="flex-1 resize-none bg-transparent text-base leading-6 font-normal text-neutral-900 outline-none placeholder:text-gray-500"
-              />
-            </div>
-          </div>
-          <div className="flex items-center justify-end gap-3">
-            <Button hierarchy="secondary-gray" size="md" onClick={() => setNoteOpen(false)}>
-              Отменить
-            </Button>
-            <Button
-              size="md"
-              disabled={noteText.trim().length === 0}
-              onClick={() => {
-                setNotes((prev) => [
-                  { id: `note-${prev.length + 1}`, at: new Date().toISOString(), text: noteText.trim() },
-                  ...prev,
-                ])
-                setNoteText('')
-                setNoteOpen(false)
-              }}
-            >
-              Сохранить
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       <Modal
         open={adjustOpen}

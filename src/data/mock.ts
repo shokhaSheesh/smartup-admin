@@ -352,8 +352,9 @@ export const balances: BalanceAccount[] = companies.map((c) => {
 
 /* -------------------------------------------------------------------- users */
 
+/** Only the first employee is the director — everyone else is staff. */
 const ROLE_WEIGHTS: TenantUserRole[] = [
-  'director', 'accountant', 'operator', 'operator', 'operator', 'accountant',
+  'accountant', 'operator', 'operator', 'operator', 'accountant',
 ]
 
 export const tenantUsers: TenantUser[] = companies.flatMap((c, ci) => {
