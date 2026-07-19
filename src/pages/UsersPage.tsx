@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Lock, LockOpen, User } from 'lucide-react'
+import { Building2, Lock, LockOpen, User, Users } from 'lucide-react'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
@@ -13,6 +13,7 @@ import { UserStatusBadge } from '@/components/ui/StatusBadge'
 import { RowMenu } from '@/components/ui/RowMenu'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { companies, platformUsers } from '@/data/mock'
+import { applyUserEdit, useUserEdits, withEdits } from '@/data/userEdits'
 import type {
   AuthMethod,
   PlatformUser,
@@ -78,11 +79,16 @@ export default function UsersPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
 
-  /** Local override map — blocking is not persisted anywhere in the mock data. */
-  const [overrides, setOverrides] = useState<Record<string, UserStatus>>({})
   const [target, setTarget] = useState<PlatformUser | null>(null)
 
-  const statusOf = (u: PlatformUser): UserStatus => overrides[u.id] ?? u.status
+  /** Admin edits live in a shared store so the detail page stays in sync. */
+  const edits = useUserEdits()
+  const allUsers = useMemo(
+    () => platformUsers.map((u) => withEdits(u, edits)),
+    [edits],
+  )
+
+  const statusOf = (u: PlatformUser): UserStatus => u.status
 
   const showingIndividuals = kind === 'individual'
 
@@ -91,6 +97,7 @@ export default function UsersPage() {
 
   const counts = useMemo(
     () => ({
+      total: platformUsers.length,
       individual: platformUsers.filter((u) => u.kind === 'individual').length,
       employee: platformUsers.filter((u) => u.kind === 'employee').length,
     }),
@@ -99,10 +106,10 @@ export default function UsersPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return platformUsers.filter((u) => {
+    return allUsers.filter((u) => {
       if (u.kind !== kind) return false
       if (role !== ALL && u.role !== role) return false
-      if (status !== ALL && (overrides[u.id] ?? u.status) !== status) return false
+      if (status !== ALL && u.status !== status) return false
       if (companyId !== ALL && u.companyId !== companyId) return false
       if (authMethod !== ALL && u.authMethod !== authMethod) return false
       if (!q) return true
@@ -113,7 +120,7 @@ export default function UsersPage() {
         (u.companyInn?.includes(q) ?? false)
       )
     })
-  }, [search, kind, role, status, companyId, authMethod, overrides])
+  }, [allUsers, search, kind, role, status, companyId, authMethod])
 
   const rows = paginate(filtered, page, pageSize)
 
@@ -126,10 +133,9 @@ export default function UsersPage() {
 
   function toggleBlock(reason: string) {
     if (!target) return
-    const next: UserStatus = statusOf(target) === 'blocked' ? 'active' : 'blocked'
     // In a real build the reason travels with the request to the audit log.
     void reason
-    setOverrides((prev) => ({ ...prev, [target.id]: next }))
+    applyUserEdit(target.id, { status: statusOf(target) === 'blocked' ? 'active' : 'blocked' })
     setTarget(null)
   }
 
@@ -223,6 +229,11 @@ export default function UsersPage() {
         <div onClick={(e) => e.stopPropagation()}>
           <RowMenu
             items={[
+              {
+                label: 'Открыть профиль',
+                icon: <User className="size-4" />,
+                onClick: () => navigate(`/users/${u.id}`),
+              },
               // Individuals belong to no company, so there is nothing to open.
               {
                 label: 'Открыть компанию',
@@ -254,6 +265,13 @@ export default function UsersPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 sm:flex-row">
+        <StatCard
+          value={formatNumber(counts.total)}
+          label="Всего пользователей"
+          icon={Users}
+          iconBg="bg-blue-50"
+          iconColor="text-Smart-blue"
+        />
         <StatCard
           value={formatNumber(counts.individual)}
           label="Физические лица"
@@ -362,6 +380,7 @@ export default function UsersPage() {
           )}
           rows={rows}
           rowKey={(u) => u.id}
+          onRowClick={(u) => navigate(`/users/${u.id}`)}
           emptyMessage="Пользователи не найдены"
         />
 
