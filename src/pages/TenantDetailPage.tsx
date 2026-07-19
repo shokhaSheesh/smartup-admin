@@ -24,7 +24,7 @@ import type {
   TenantStatus,
   TenantUser,
 } from '@/types/admin'
-import { DOC_TYPES, docTypeLabel, subtypesFor } from '@/types/admin'
+import { DOC_TYPES, docTypeLabel } from '@/types/admin'
 import {
   balanceByCompany,
   companyById,
@@ -114,7 +114,6 @@ export default function TenantDetailPage() {
   const edits = useTenantEdits()
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [docType, setDocType] = useState<string>(ALL)
-  const [docSubtype, setDocSubtype] = useState<string>(ALL)
   const [docStatus, setDocStatus] = useState<string>(ALL)
   const [docRange, setDocRange] = useState<DateRange>(EMPTY_RANGE)
   const [overageMode, setOverageMode] = useState<'payg' | null>(null)
@@ -123,23 +122,17 @@ export default function TenantDetailPage() {
   const users = useMemo(() => (company ? usersByCompany(company.id) : []), [company])
   const docs = useMemo(() => (company ? documentsByCompany(company.id) : []), [company])
 
-  const docSubtypeOptions = useMemo(
-    () => (docType === ALL ? [] : subtypesFor(docType)),
-    [docType],
-  )
-
   const filteredDocs = useMemo(
     () =>
       docs.filter((d) => {
         if (docType !== ALL && d.type !== docType) return false
-        if (docSubtype !== ALL && d.subtype !== docSubtype) return false
         if (docStatus !== ALL && d.status !== docStatus) return false
         if (docRange.from || docRange.to) {
           if (!inRange(d.sentAt, docRange)) return false
         }
         return true
       }),
-    [docs, docType, docSubtype, docStatus, docRange],
+    [docs, docType, docStatus, docRange],
   )
 
   /**
@@ -630,7 +623,7 @@ export default function TenantDetailPage() {
             </span>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="sm:col-span-2">
               <DateRangeFilter
                 label="Период отправки"
@@ -641,22 +634,10 @@ export default function TenantDetailPage() {
             <Select
               label="Тип документа"
               value={docType}
-              onChange={(v) => {
-                setDocType(v)
-                setDocSubtype(ALL)
-              }}
+              onChange={setDocType}
               options={[
                 { value: ALL, label: 'Все типы' },
                 ...DOC_TYPES.map((t) => ({ value: t, label: t })),
-              ]}
-            />
-            <Select
-              label="Вид документа"
-              value={docSubtype}
-              onChange={setDocSubtype}
-              options={[
-                { value: ALL, label: 'Все виды' },
-                ...docSubtypeOptions.map((s) => ({ value: s, label: s })),
               ]}
             />
             <Select

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, Ban, CheckCircle2, ExternalLink, Pencil } from 'lucide-react'
+import { Ban, Building2, CheckCircle2, ExternalLink, Pencil } from 'lucide-react'
 import type { Company, TenantStatus, BillingMode } from '@/types/admin'
 import { companies, plans } from '@/data/mock'
 import {
@@ -18,6 +18,7 @@ import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
 import { Pagination, paginate, PAGE_SIZES } from '@/components/ui/Pagination'
 import { Tabs } from '@/components/ui/Tabs'
+import { StatCard } from '@/components/ui/StatCard'
 import { TenantStatusBadge } from '@/components/ui/StatusBadge'
 import { RowMenu } from '@/components/ui/RowMenu'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -35,42 +36,6 @@ const statusTabs: Array<{ key: string; label: string; pill: string }> = [
   { key: 'active', label: 'Активные', pill: 'bg-green-400' },
   { key: 'suspended', label: 'Приостановленные', pill: 'bg-red-500' },
 ]
-
-/** Client-side CSV export — semicolon-separated with a BOM so Excel reads Cyrillic. */
-function exportCompaniesCsv(rows: Row[]) {
-  const headers = [
-    'Название',
-    'ИНН',
-    'Баланс',
-    'Тарифный план',
-    'Действует до',
-    'Сотрудники',
-    'Отправлено док. (за месяц)',
-    'Статус',
-    'Регистрация',
-  ]
-  const body = rows.map((c) => [
-    c.name,
-    c.inn,
-    formatMoney(c.balance),
-    c.planName ?? '—',
-    formatDate(c.terms.periodEnd),
-    String(c.employees),
-    String(c.docsSentThisMonth),
-    tenantStatusLabel[c.status],
-    formatDate(c.createdAt),
-  ])
-  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
-  const csv = [headers, ...body].map((r) => r.map(escape).join(';')).join('\r\n')
-  const url = URL.createObjectURL(
-    new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }),
-  )
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `tenants-${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
-}
 
 export default function TenantsPage() {
   const navigate = useNavigate()
@@ -320,11 +285,32 @@ export default function TenantsPage() {
         </div>
       )}
 
-      <PageCard>
-        <PageHeader
-          title="Компании"
-          subtitle={`Всего компаний на платформе: ${formatNumber(rows.length)}`}
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <StatCard
+          value={formatNumber(counts[ANY] ?? 0)}
+          label="Всего компаний"
+          icon={Building2}
+          iconBg="bg-blue-50"
+          iconColor="text-Smart-blue"
         />
+        <StatCard
+          value={formatNumber(counts.active ?? 0)}
+          label="Активные"
+          icon={CheckCircle2}
+          iconBg="bg-green-100"
+          iconColor="text-emerald-600"
+        />
+        <StatCard
+          value={formatNumber(counts.suspended ?? 0)}
+          label="Приостановленные"
+          icon={Ban}
+          iconBg="bg-red-100"
+          iconColor="text-red-600"
+        />
+      </div>
+
+      <PageCard>
+        <PageHeader title="Компании" />
 
         <div className="mt-4">
           <Toolbar
@@ -333,16 +319,7 @@ export default function TenantsPage() {
             placeholder="Поиск по ИНН, названию, директору, телефону, email"
             filtersActive={showFilters}
             onToggleFilters={() => setShowFilters((v) => !v)}
-          >
-            <button
-              type="button"
-              onClick={() => exportCompaniesCsv(filtered)}
-              className="flex shrink-0 items-center gap-2 rounded-lg bg-Smart-green px-4 py-2.5 text-base font-semibold text-white shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition hover:brightness-105"
-            >
-              <Download className="size-5" />
-              Экспорт CSV
-            </button>
-          </Toolbar>
+          />
         </div>
 
         {showFilters && (
@@ -380,7 +357,7 @@ export default function TenantsPage() {
         )}
 
         <Tabs
-          tabs={statusTabs.map((t) => ({ ...t, count: counts[t.key] ?? 0 }))}
+          tabs={statusTabs.map((t) => ({ key: t.key, label: t.label }))}
           active={tab}
           onChange={resetPage(setTab)}
         />
