@@ -72,7 +72,6 @@ function toCsv(rows: AdminDocument[]): string {
     'Получатель',
     'Статус',
     'Сумма',
-    'Создан',
     'Отправлен',
     'Списание',
     'Сумма списания',
@@ -89,7 +88,6 @@ function toCsv(rows: AdminDocument[]): string {
       d.receiverName,
       docStatusLabel[d.status],
       String(d.amount),
-      formatDate(d.createdAt),
       formatDate(d.sentAt),
       d.chargeType ? chargeTypeLabel[d.chargeType] : '',
       String(d.chargeAmount),
@@ -145,9 +143,9 @@ export default function DocumentsPage() {
       if (senderInn && !d.senderInn.includes(senderInn.replace(/\s/g, ''))) return false
       if (receiverInn && !d.receiverInn.includes(receiverInn.replace(/\s/g, ''))) return false
 
-      const created = new Date(d.createdAt).getTime()
-      if (from !== null && created < from) return false
-      if (to !== null && created > to) return false
+      const sent = d.sentAt ? new Date(d.sentAt).getTime() : null
+      if (from !== null && (sent === null || sent < from)) return false
+      if (to !== null && (sent === null || sent > to)) return false
 
       if (!q) return true
       return (
@@ -255,13 +253,6 @@ export default function DocumentsPage() {
       cls: 'text-right',
       cell: (d) => (
         <span className="text-sm whitespace-nowrap text-gray-900">{formatMoney(d.amount)}</span>
-      ),
-    },
-    {
-      key: 'createdAt',
-      header: 'Создан',
-      cell: (d) => (
-        <span className="text-sm whitespace-nowrap text-gray-900">{formatDate(d.createdAt)}</span>
       ),
     },
     {

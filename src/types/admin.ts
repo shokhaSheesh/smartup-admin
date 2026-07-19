@@ -278,8 +278,9 @@ export type AdminDocument = {
   /** Who signed or rejected it, on the receiving side. */
   resolvedBy: string | null
   amount: number
-  createdAt: string
   sentAt: string | null
+  /** When it was signed, rejected or cancelled. */
+  resolvedAt: string | null
   chargeType: ChargeType | null
   chargeAmount: number
 }

@@ -89,7 +89,7 @@ export default function UserDetailPage() {
       if (d.status === 'signed') {
         items.push({
           id: `g-${d.id}`,
-          at: d.sentAt ?? d.createdAt,
+          at: d.resolvedAt ?? d.sentAt ?? '',
           kind: 'doc_signed',
           title: 'Документ подписан',
           detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
@@ -99,7 +99,7 @@ export default function UserDetailPage() {
       if (d.status === 'rejected') {
         items.push({
           id: `r-${d.id}`,
-          at: d.sentAt ?? d.createdAt,
+          at: d.resolvedAt ?? d.sentAt ?? '',
           kind: 'doc_rejected',
           title: 'Документ отклонён',
           detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,

@@ -210,7 +210,7 @@ export default function TenantDetailPage() {
       if (d.status === 'signed') {
         items.push({
           id: `doc-signed-${d.id}`,
-          at: d.sentAt ?? d.createdAt,
+          at: d.resolvedAt ?? d.sentAt ?? '',
           kind: 'doc_signed',
           title: 'Документ подписан',
           detail: withActor(
@@ -224,7 +224,7 @@ export default function TenantDetailPage() {
       if (d.status === 'rejected') {
         items.push({
           id: `doc-rejected-${d.id}`,
-          at: d.sentAt ?? d.createdAt,
+          at: d.resolvedAt ?? d.sentAt ?? '',
           kind: 'doc_rejected',
           title: 'Документ отклонён',
           detail: withActor(

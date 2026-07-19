@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Download, Eye, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, Ban, Download, Eye, FileCheck, FileX, Send, ShieldAlert } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { FormCard, Field, PageCard, PageHeader } from '@/components/ui/PageCard'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ChargeTypeBadge, DocStatusBadge } from '@/components/ui/StatusBadge'
-import { companies, currentAdmin, documents } from '@/data/mock'
+import { companies, currentAdmin, documents, userNameById } from '@/data/mock'
 import type { AdminDocument, Company } from '@/types/admin'
-import { chargeTypeLabel, docDirectionLabel } from '@/types/labels'
+import { adminRoleLabel, chargeTypeLabel, docDirectionLabel } from '@/types/labels'
 import { formatDate, formatDateTime, formatInn, formatMoney } from '@/lib/format'
 
 type LineItem = {
@@ -111,6 +112,7 @@ export default function DocumentDetailPage() {
 
   const doc = useMemo(() => documents.find((d) => d.id === id), [id])
   const [revealedAt, setRevealedAt] = useState<string | null>(null)
+  const [revealReason, setRevealReason] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   if (!doc) {
@@ -131,30 +133,120 @@ export default function DocumentDetailPage() {
     )
   }
 
+  /**
+   * Document lifecycle, newest first. Admin views are session-only for now —
+   * with a backend they would come from the audit log.
+   */
+  const changeLog: Array<{
+    id: string
+    at: string
+    title: string
+    by: string
+    note?: string
+    icon: ReactNode
+  }> = []
+
+  if (doc.sentAt) {
+    changeLog.push({
+      id: 'sent',
+      at: doc.sentAt,
+      title: 'Документ отправлен',
+      by: userNameById(doc.sentBy) ?? doc.senderName,
+      icon: <Send className="size-4 text-Smart-blue" />,
+    })
+  }
+  if (doc.resolvedAt && doc.status === 'signed') {
+    changeLog.push({
+      id: 'signed',
+      at: doc.resolvedAt,
+      title: 'Документ подписан',
+      by: userNameById(doc.resolvedBy) ?? doc.receiverName,
+      icon: <FileCheck className="size-4 text-emerald-600" />,
+    })
+  }
+  if (doc.resolvedAt && doc.status === 'rejected') {
+    changeLog.push({
+      id: 'rejected',
+      at: doc.resolvedAt,
+      title: 'Документ отклонён',
+      by: userNameById(doc.resolvedBy) ?? doc.receiverName,
+      icon: <FileX className="size-4 text-red-500" />,
+    })
+  }
+  if (doc.resolvedAt && doc.status === 'cancelled') {
+    changeLog.push({
+      id: 'cancelled',
+      at: doc.resolvedAt,
+      title: 'Документ отменён',
+      by: userNameById(doc.sentBy) ?? doc.senderName,
+      icon: <Ban className="size-4 text-gray-400" />,
+    })
+  }
+  if (revealedAt) {
+    changeLog.push({
+      id: 'revealed',
+      at: revealedAt,
+      title: 'Просмотр содержимого администратором',
+      by: `${currentAdmin.fullName} · ${adminRoleLabel[currentAdmin.role]}`,
+      note: revealReason ? `Основание: ${revealReason}` : undefined,
+      icon: <Eye className="size-4 text-amber-500" />,
+    })
+  }
+  changeLog.sort((a, b) => +new Date(b.at) - +new Date(a.at))
+
   const sender = companies.find((c) => c.inn === doc.senderInn)
   const receiver = companies.find((c) => c.inn === doc.receiverInn)
   const { items, net, vat } = buildLineItems(doc)
 
   return (
     <div className="flex flex-col gap-4">
+      <button
+        type="button"
+        onClick={() => navigate('/documents')}
+        className="flex w-fit items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900"
+      >
+        <ArrowLeft className="size-4" />
+        К реестру документов
+      </button>
+
       <PageHeader
         title={`${doc.type} № ${doc.number}`}
-        subtitle={`${docDirectionLabel[doc.direction]} · создан ${formatDate(doc.createdAt)}`}
+        subtitle={`${docDirectionLabel[doc.direction]}${doc.subtype ? ` · ${doc.subtype}` : ''}`}
         actions={
-          <>
-            <Button
-              hierarchy="secondary-gray"
-              leadingIcon={<ArrowLeft className="size-4" />}
-              onClick={() => navigate('/documents')}
-            >
-              Назад к реестру
-            </Button>
-            <Button leadingIcon={<Download className="size-4" />} onClick={() => undefined}>
-              Скачать PDF
-            </Button>
-          </>
+          <Button leadingIcon={<Download className="size-4" />} onClick={() => undefined}>
+            Скачать PDF
+          </Button>
         }
       />
+
+      <FormCard title="История изменений">
+        {changeLog.length === 0 ? (
+          <p className="py-6 text-center text-sm text-gray-400">
+            По документу пока нет событий
+          </p>
+        ) : (
+          <ol className="flex flex-col">
+            {changeLog.map((e) => (
+              <li
+                key={e.id}
+                className="flex gap-3 border-b border-gray-100 py-3 last:border-b-0"
+              >
+                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-50">
+                  {e.icon}
+                </div>
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-medium text-slate-800">{e.title}</span>
+                  <span className="text-sm text-gray-500">{e.by}</span>
+                  {e.note && <span className="text-xs text-gray-400">{e.note}</span>}
+                </div>
+                <span className="text-xs whitespace-nowrap text-gray-400">
+                  {formatDateTime(e.at)}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </FormCard>
 
       <FormCard title="Метаданные">
         <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
@@ -165,7 +257,6 @@ export default function DocumentDetailPage() {
             <DocStatusBadge status={doc.status} />
           </Field>
           <Field label="Сумма">{formatMoney(doc.amount)} сум</Field>
-          <Field label="Создан">{formatDateTime(doc.createdAt)}</Field>
           <Field label="Отправлен">{formatDateTime(doc.sentAt)}</Field>
           <Field label="Списание">
             <span className="flex flex-col items-start gap-1">
@@ -229,7 +320,7 @@ export default function DocumentDetailPage() {
                 <div className="flex flex-col gap-1">
                   <h2 className="text-lg font-semibold text-slate-800">{doc.type}</h2>
                   <span className="text-sm text-gray-500">
-                    № {doc.number} от {formatDate(doc.createdAt)}
+                    № {doc.number} от {formatDate(doc.sentAt)}
                   </span>
                 </div>
                 <DocStatusBadge status={doc.status} />
@@ -315,7 +406,10 @@ export default function DocumentDetailPage() {
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        onConfirm={() => setRevealedAt(new Date().toISOString())}
+        onConfirm={(reason) => {
+          setRevealedAt(new Date().toISOString())
+          setRevealReason(reason)
+        }}
         title="Показать содержимое документа"
         confirmLabel="Показать содержимое"
         description={

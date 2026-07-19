@@ -492,8 +492,8 @@ const companyDocuments: AdminDocument[] = Array.from({ length: 420 }, (_, i) => 
     sentBy,
     resolvedBy,
     amount: int(150_000, 480_000_000),
-    createdAt: daysAgo(createdDays),
     sentAt: sent,
+    resolvedAt: status === 'pending' ? null : daysAgo(Math.max(0, createdDays - int(2, 6))),
     chargeType,
     chargeAmount,
   }
@@ -548,8 +548,8 @@ const individualDocuments: AdminDocument[] = Array.from({ length: 300 }, (_, i) 
           : owner.id
         : null,
     amount: int(80_000, 40_000_000),
-    createdAt: daysAgo(createdDays),
     sentAt: sent,
+    resolvedAt: status === 'pending' ? null : daysAgo(Math.max(0, createdDays - int(2, 6))),
     chargeType,
     chargeAmount,
   }

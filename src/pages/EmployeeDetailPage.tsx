@@ -94,7 +94,7 @@ export default function EmployeeDetailPage() {
       if (d.resolvedBy === userId && d.status === 'signed') {
         items.push({
           id: `g-${d.id}`,
-          at: d.sentAt ?? d.createdAt,
+          at: d.resolvedAt ?? d.sentAt ?? '',
           kind: 'doc_signed',
           title: 'Подписал документ',
           detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
@@ -104,7 +104,7 @@ export default function EmployeeDetailPage() {
       if (d.resolvedBy === userId && d.status === 'rejected') {
         items.push({
           id: `r-${d.id}`,
-          at: d.sentAt ?? d.createdAt,
+          at: d.resolvedAt ?? d.sentAt ?? '',
           kind: 'doc_rejected',
           title: 'Отклонил документ',
           detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
