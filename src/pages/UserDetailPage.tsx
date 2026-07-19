@@ -23,7 +23,6 @@ import {
   withEdits,
 } from '@/data/userEdits'
 import {
-  adjustmentCategoryLabel,
   authMethodLabel,
   tenantUserRoleLabel,
   userKindLabel,
@@ -120,7 +119,7 @@ export default function UserDetailPage() {
       at: a.at,
       kind: 'balance',
       title: a.direction === 'credit' ? 'Начисление на баланс' : 'Списание с баланса',
-      detail: `${adjustmentCategoryLabel[a.category]} · ${a.reason} · ${a.admin}`,
+      detail: `${a.reason} · ${a.admin}`,
       amount: a.direction === 'credit' ? a.amount : -a.amount,
     }))
 
@@ -331,9 +330,8 @@ export default function UserDetailPage() {
                       >
                         <div className="flex flex-1 flex-col gap-0.5">
                           <span className="text-sm font-medium text-slate-800">
-                            {adjustmentCategoryLabel[a.category]}
+                            {a.reason}
                           </span>
-                          <span className="text-sm text-gray-500">{a.reason}</span>
                           <span className="text-xs text-gray-400">
                             {formatDateTime(a.at)} · {a.admin}
                           </span>

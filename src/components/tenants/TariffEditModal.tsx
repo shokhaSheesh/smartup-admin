@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RotateCcw, ShieldAlert, Wand2 } from 'lucide-react'
 import type { Company } from '@/types/admin'
-import type { AdjustmentCategory } from '@/types/admin'
 import { plans } from '@/data/mock'
 import {
   effectiveTerms,
@@ -10,7 +9,7 @@ import {
   type BalanceAdjustment,
   type TenantEdit,
 } from '@/data/tenantEdits'
-import { adjustmentCategoryLabel, periodLabel } from '@/types/labels'
+import { periodLabel } from '@/types/labels'
 import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
@@ -128,7 +127,6 @@ export function TariffEditModal({ open, onClose, company, onSave }: TariffEditMo
   const [adjust, setAdjust] = useState(false)
   const [direction, setDirection] = useState<'credit' | 'debit'>('credit')
   const [amount, setAmount] = useState('')
-  const [category, setCategory] = useState<AdjustmentCategory>('compensation')
   const [adjustReason, setAdjustReason] = useState('')
 
   const [touched, setTouched] = useState(false)
@@ -144,7 +142,6 @@ export function TariffEditModal({ open, onClose, company, onSave }: TariffEditMo
     setAdjust(false)
     setDirection('credit')
     setAmount('')
-    setCategory('compensation')
     setAdjustReason('')
     setTouched(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -211,7 +208,7 @@ export function TariffEditModal({ open, onClose, company, onSave }: TariffEditMo
       },
       reason.trim(),
       adjust && amountValue > 0
-        ? { direction, amount: amountValue, category, reason: adjustReason.trim() }
+        ? { direction, amount: amountValue, reason: adjustReason.trim() }
         : null,
     )
     onClose()
@@ -359,17 +356,7 @@ export function TariffEditModal({ open, onClose, company, onSave }: TariffEditMo
                   ]}
                 />
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <NumberField label="Сумма" value={amount} onChange={setAmount} suffix="сум" />
-                  <Select
-                    label="Категория"
-                    value={category}
-                    onChange={(v) => setCategory(v as AdjustmentCategory)}
-                    options={(
-                      Object.keys(adjustmentCategoryLabel) as AdjustmentCategory[]
-                    ).map((c) => ({ value: c, label: adjustmentCategoryLabel[c] }))}
-                  />
-                </div>
+                <NumberField label="Сумма" value={amount} onChange={setAmount} suffix="сум" />
 
                 <div className="flex w-full flex-col items-start gap-1.5">
                   <span className="text-sm leading-5 font-medium text-slate-700">

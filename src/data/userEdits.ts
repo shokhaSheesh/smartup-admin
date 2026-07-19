@@ -5,7 +5,7 @@
  * must still be visible on the user's detail page and vice versa.
  */
 import { useSyncExternalStore } from 'react'
-import type { AdjustmentCategory, PlatformUser, UserStatus } from '@/types/admin'
+import type { PlatformUser, UserStatus } from '@/types/admin'
 
 export type UserEdit = {
   /** Net of every manual balance adjustment applied in this session. */
@@ -16,7 +16,6 @@ export type UserEdit = {
 export type UserBalanceAdjustment = {
   direction: 'credit' | 'debit'
   amount: number
-  category: AdjustmentCategory
   reason: string
 }
 

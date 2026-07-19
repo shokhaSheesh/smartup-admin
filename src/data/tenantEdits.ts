@@ -6,7 +6,7 @@
  * either page's local state.
  */
 import { useSyncExternalStore } from 'react'
-import type { AdjustmentCategory, Company, TenantStatus } from '@/types/admin'
+import type { Company, TenantStatus } from '@/types/admin'
 import { plans, subscriptionByCompany } from './mock'
 
 export type TenantEdit = {
@@ -24,7 +24,6 @@ export type TenantEdit = {
 export type BalanceAdjustment = {
   direction: 'credit' | 'debit'
   amount: number
-  category: AdjustmentCategory
   reason: string
 }
 

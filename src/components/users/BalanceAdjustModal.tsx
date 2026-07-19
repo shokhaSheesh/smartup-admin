@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ShieldAlert } from 'lucide-react'
-import type { AdjustmentCategory } from '@/types/admin'
 import type { UserBalanceAdjustment } from '@/data/userEdits'
-import { adjustmentCategoryLabel } from '@/types/labels'
 import { Modal } from '@/components/ui/Modal'
-import { Select } from '@/components/ui/Select'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { formatSum } from '@/lib/format'
 import { cn } from '@/lib/cn'
@@ -32,7 +29,6 @@ export function BalanceAdjustModal({
 }: BalanceAdjustModalProps) {
   const [direction, setDirection] = useState<'credit' | 'debit'>('credit')
   const [amount, setAmount] = useState('')
-  const [category, setCategory] = useState<AdjustmentCategory>('compensation')
   const [reason, setReason] = useState('')
   const [touched, setTouched] = useState(false)
 
@@ -40,7 +36,6 @@ export function BalanceAdjustModal({
     if (!open) return
     setDirection('credit')
     setAmount('')
-    setCategory('compensation')
     setReason('')
     setTouched(false)
   }, [open])
@@ -56,7 +51,7 @@ export function BalanceAdjustModal({
   function handleApply() {
     setTouched(true)
     if (!canApply) return
-    onApply({ direction, amount: value, category, reason: reason.trim() })
+    onApply({ direction, amount: value, reason: reason.trim() })
     onClose()
   }
 
@@ -79,38 +74,27 @@ export function BalanceAdjustModal({
           ]}
         />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex w-full flex-col items-start gap-1.5">
-            <span className="text-sm leading-5 font-medium text-slate-700">
-              Сумма<span className="text-red-500"> *</span>
-            </span>
-            <div
-              className={cn(
-                'flex w-full items-center gap-2 overflow-hidden rounded-lg bg-white px-3.5 py-2.5 outline outline-1 outline-offset-[-1px] transition',
-                touched && amountInvalid
-                  ? 'outline-red-300 focus-within:outline-red-400'
-                  : 'outline-gray-200 focus-within:outline-Smart-blue',
-              )}
-            >
-              <input
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-                placeholder="0"
-                className="flex-1 bg-transparent text-base leading-6 font-normal text-neutral-900 tabular-nums outline-none placeholder:text-gray-500"
-              />
-              <span className="shrink-0 text-sm text-gray-500">сум</span>
-            </div>
-          </div>
-
-          <Select
-            label="Категория"
-            value={category}
-            onChange={(v) => setCategory(v as AdjustmentCategory)}
-            options={(Object.keys(adjustmentCategoryLabel) as AdjustmentCategory[]).map(
-              (c) => ({ value: c, label: adjustmentCategoryLabel[c] }),
+        <div className="flex w-full flex-col items-start gap-1.5">
+          <span className="text-sm leading-5 font-medium text-slate-700">
+            Сумма<span className="text-red-500"> *</span>
+          </span>
+          <div
+            className={cn(
+              'flex w-full items-center gap-2 overflow-hidden rounded-lg bg-white px-3.5 py-2.5 outline outline-1 outline-offset-[-1px] transition',
+              touched && amountInvalid
+                ? 'outline-red-300 focus-within:outline-red-400'
+                : 'outline-gray-200 focus-within:outline-Smart-blue',
             )}
-          />
+          >
+            <input
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+              placeholder="0"
+              className="flex-1 bg-transparent text-base leading-6 font-normal text-neutral-900 tabular-nums outline-none placeholder:text-gray-500"
+            />
+            <span className="shrink-0 text-sm text-gray-500">сум</span>
+          </div>
         </div>
 
         <div className="flex w-full flex-col items-start gap-1.5">
