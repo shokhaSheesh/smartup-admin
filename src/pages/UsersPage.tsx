@@ -57,6 +57,12 @@ const STATUS_OPTIONS = [
 ]
 
 
+const BALANCE_OPTIONS = [
+  { value: ALL, label: 'Любой баланс' },
+  { value: 'positive', label: 'Положительный' },
+  { value: 'zero', label: 'Нулевой' },
+]
+
 const COMPANY_OPTIONS = [
   { value: ALL, label: 'Все компании' },
   ...companies.map((c) => ({ value: c.id, label: `${formatInn(c.inn)} · ${c.name}` })),
@@ -71,6 +77,7 @@ export default function UsersPage() {
   const [role, setRole] = useState(ALL)
   const [status, setStatus] = useState(ALL)
   const [companyId, setCompanyId] = useState(ALL)
+  const [balance, setBalance] = useState(ALL)
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
@@ -90,7 +97,7 @@ export default function UsersPage() {
   const showingIndividuals = kind === 'individual'
 
   const filtersActive =
-    role !== ALL || status !== ALL || companyId !== ALL
+    role !== ALL || status !== ALL || companyId !== ALL || balance !== ALL
 
   const counts = useMemo(
     () => ({
@@ -105,18 +112,30 @@ export default function UsersPage() {
     const q = search.trim().toLowerCase()
     return allUsers.filter((u) => {
       if (u.kind !== kind) return false
-      if (role !== ALL && u.role !== role) return false
       if (status !== ALL && u.status !== status) return false
-      if (companyId !== ALL && u.companyId !== companyId) return false
+      // Role and company only exist on employees.
+      if (u.kind === 'employee') {
+        if (role !== ALL && u.role !== role) return false
+        if (companyId !== ALL && u.companyId !== companyId) return false
+      }
+      if (u.kind === 'individual' && balance !== ALL) {
+        if (balance === 'zero' && (u.balance ?? 0) > 0) return false
+        if (balance === 'positive' && (u.balance ?? 0) <= 0) return false
+      }
       if (!q) return true
-      return (
-        u.fullName.toLowerCase().includes(q) ||
-        u.pinfl.includes(q) ||
-        (u.companyName?.toLowerCase().includes(q) ?? false) ||
-        (u.companyInn?.includes(q) ?? false)
-      )
+
+      // Search only over fields the selected kind actually has: an individual
+      // has no company, and an employee is not identified by ПИНФЛ.
+      return u.kind === 'individual'
+        ? u.fullName.toLowerCase().includes(q) ||
+            u.pinfl.includes(q) ||
+            u.phone.replace(/\s|-/g, '').includes(q.replace(/\s|-/g, '')) ||
+            (u.address?.toLowerCase().includes(q) ?? false)
+        : u.fullName.toLowerCase().includes(q) ||
+            (u.companyName?.toLowerCase().includes(q) ?? false) ||
+            (u.companyInn?.includes(q) ?? false)
     })
-  }, [allUsers, search, kind, role, status, companyId])
+  }, [allUsers, search, kind, role, status, companyId, balance])
 
   const rows = paginate(filtered, page, pageSize)
 
@@ -299,7 +318,11 @@ export default function UsersPage() {
           <Toolbar
             search={search}
             onSearchChange={resetPage(setSearch)}
-            placeholder="Поиск по ФИО, ПИНФЛ, компании или ИНН"
+            placeholder={
+              showingIndividuals
+                ? 'Поиск по ФИО, ПИНФЛ, телефону или адресу'
+                : 'Поиск по ФИО, компании или ИНН'
+            }
             filtersActive={showFilters || filtersActive}
             onToggleFilters={() => setShowFilters((v) => !v)}
           />
@@ -313,6 +336,14 @@ export default function UsersPage() {
               value={status}
               onChange={resetPage(setStatus)}
             />
+            {showingIndividuals && (
+              <Select
+                label="Баланс"
+                options={BALANCE_OPTIONS}
+                value={balance}
+                onChange={resetPage(setBalance)}
+              />
+            )}
             {!showingIndividuals && (
               <>
                 <Select
@@ -361,7 +392,10 @@ export default function UsersPage() {
             if (k === 'individual') {
               setRole(ALL)
               setCompanyId(ALL)
+            } else {
+              setBalance(ALL)
             }
+            setSearch('')
             setPage(1)
           }}
         />
