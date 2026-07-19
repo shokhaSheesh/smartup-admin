@@ -149,6 +149,8 @@ export type PlatformUser = {
   /** Individuals hold their own address and balance; employees bill to the company. */
   address: string | null
   balance: number | null
+  /** Outgoing documents sent this calendar month. */
+  docsSentThisMonth: number
   status: UserStatus
   lastLoginAt: string
   registeredAt: string
@@ -254,7 +256,12 @@ export type Adjustment = {
 export type AdminDocument = {
   id: string
   number: string
-  companyId: string
+  /**
+   * A document belongs to exactly one participant — either a company or an
+   * individual. Precisely one of these is set.
+   */
+  companyId: string | null
+  userId: string | null
   type: DocType
   /** Вид документа — null for types that have no subtypes. */
   subtype: string | null

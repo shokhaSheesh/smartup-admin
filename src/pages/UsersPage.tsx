@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Lock, LockOpen, User, Users } from 'lucide-react'
+import { Building2, Lock, LockOpen, User, Users, Wallet } from 'lucide-react'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
@@ -12,8 +12,14 @@ import { StatCard } from '@/components/ui/StatCard'
 import { UserStatusBadge } from '@/components/ui/StatusBadge'
 import { RowMenu } from '@/components/ui/RowMenu'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { companies, platformUsers } from '@/data/mock'
-import { applyUserEdit, useUserEdits, withEdits } from '@/data/userEdits'
+import { BalanceAdjustModal } from '@/components/users/BalanceAdjustModal'
+import { companies, currentAdmin, platformUsers } from '@/data/mock'
+import {
+  applyUserBalanceAdjustment,
+  applyUserEdit,
+  useUserEdits,
+  withEdits,
+} from '@/data/userEdits'
 import type {
   AuthMethod,
   PlatformUser,
@@ -80,6 +86,7 @@ export default function UsersPage() {
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
 
   const [target, setTarget] = useState<PlatformUser | null>(null)
+  const [adjustTarget, setAdjustTarget] = useState<PlatformUser | null>(null)
 
   /** Admin edits live in a shared store so the detail page stays in sync. */
   const edits = useUserEdits()
@@ -188,6 +195,16 @@ export default function UsersPage() {
       cell: (u) => <span className="text-sm text-gray-900">{u.address ?? '—'}</span>,
     },
     {
+      key: 'docs',
+      header: 'Отправлено док. (за месяц)',
+      cls: 'text-right',
+      cell: (u) => (
+        <span className="text-sm whitespace-nowrap text-gray-900 tabular-nums">
+          {formatNumber(u.docsSentThisMonth)}
+        </span>
+      ),
+    },
+    {
       key: 'balance',
       header: 'Баланс',
       cls: 'text-right',
@@ -234,13 +251,18 @@ export default function UsersPage() {
                 icon: <User className="size-4" />,
                 onClick: () => navigate(`/users/${u.id}`),
               },
-              // Individuals belong to no company, so there is nothing to open.
-              {
-                label: 'Открыть компанию',
-                icon: <Building2 className="size-4" />,
-                disabled: u.companyId === null,
-                onClick: () => u.companyId && navigate(`/tenants/${u.companyId}`),
-              },
+              // Balance is the only editable field, and only individuals have one.
+              u.kind === 'individual'
+                ? {
+                    label: 'Изменить баланс',
+                    icon: <Wallet className="size-4" />,
+                    onClick: () => setAdjustTarget(u),
+                  }
+                : {
+                    label: 'Открыть компанию',
+                    icon: <Building2 className="size-4" />,
+                    onClick: () => u.companyId && navigate(`/tenants/${u.companyId}`),
+                  },
               statusOf(u) === 'blocked'
                 ? {
                     label: 'Разблокировать',
@@ -376,7 +398,7 @@ export default function UsersPage() {
               // Individuals have no company or role, and their sign-in method is
               // always a personal E-IMZO key — so neither column carries meaning.
               ? !['company', 'role', 'auth'].includes(c.key)
-              : !['phone', 'address', 'balance'].includes(c.key),
+              : !['phone', 'address', 'balance', 'docs'].includes(c.key),
           )}
           rows={rows}
           rowKey={(u) => u.id}
@@ -392,6 +414,18 @@ export default function UsersPage() {
           onPageSizeChange={setPageSize}
         />
       </PageCard>
+
+      <BalanceAdjustModal
+        open={adjustTarget !== null}
+        onClose={() => setAdjustTarget(null)}
+        currentBalance={adjustTarget?.balance ?? 0}
+        subjectName={adjustTarget?.fullName ?? ''}
+        onApply={(adj) => {
+          if (adjustTarget) {
+            applyUserBalanceAdjustment(adjustTarget.id, adj, currentAdmin.fullName)
+          }
+        }}
+      />
 
       <ConfirmDialog
         open={target !== null}

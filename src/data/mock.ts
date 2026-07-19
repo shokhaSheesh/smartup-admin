@@ -202,13 +202,16 @@ export const billingSettings = {
  * Price per document for a tenant — determined solely by the volume tier its
  * monthly sent count falls into.
  */
-export function effectivePricePerDoc(company: Company): number {
-  const volume = company.docsSentThisMonth
+export function pricePerDocForVolume(volume: number): number {
   const tier =
     priceTiers.find(
       (t) => volume >= t.volumeFrom && (t.volumeTo === null || volume <= t.volumeTo),
     ) ?? priceTiers[0]
   return tier.pricePerDoc
+}
+
+export function effectivePricePerDoc(company: Company): number {
+  return pricePerDocForVolume(company.docsSentThisMonth)
 }
 
 /* --------------------------------------------------------------- companies */
@@ -385,6 +388,7 @@ const employees: PlatformUser[] = companies.flatMap((c, ci) => {
       // Employees bill to the company, so they hold no address or balance of their own.
       address: null,
       balance: null,
+      docsSentThisMonth: 0,
       status: c.status === 'suspended' ? 'blocked' : chance(0.07) ? 'blocked' : 'active',
       lastLoginAt: daysAgo(int(0, 90)),
       registeredAt: c.createdAt,
@@ -406,6 +410,7 @@ const individuals: PlatformUser[] = Array.from({ length: 38 }, (_, i) => ({
   phone: phone(),
   address: `${pick(REGIONS)}, ул. ${pick(['Амира Темура', 'Навои', 'Мустакиллик', 'Бабура', 'Шота Руставели'])}, ${int(1, 180)}`,
   balance: chance(0.12) ? 0 : int(5_000, 900_000),
+  docsSentThisMonth: chance(0.2) ? 0 : int(1, 60),
   status: chance(0.06) ? 'blocked' : 'active',
   lastLoginAt: daysAgo(int(0, 120)),
   registeredAt: daysAgo(int(10, 380)),
@@ -419,7 +424,7 @@ const DOC_STATUSES: DocStatus[] = [
   'pending', 'signed', 'signed', 'signed', 'rejected', 'cancelled',
 ]
 
-export const documents: AdminDocument[] = Array.from({ length: 420 }, (_, i) => {
+const companyDocuments: AdminDocument[] = Array.from({ length: 420 }, (_, i) => {
   const company = companies[int(0, companies.length - 1)]
   const counterparty = companies[int(0, companies.length - 1)]
   const direction = chance(0.55) ? 'outgoing' : 'incoming'
@@ -453,6 +458,7 @@ export const documents: AdminDocument[] = Array.from({ length: 420 }, (_, i) => 
     id: `doc-${i + 1}`,
     number: `${type.replace(/[^А-ЯA-Z]/g, '').slice(0, 3)}-${String(100_000 + i).slice(-6)}`,
     companyId: company.id,
+    userId: null,
     type,
     subtype,
     direction,
@@ -468,6 +474,57 @@ export const documents: AdminDocument[] = Array.from({ length: 420 }, (_, i) => 
     chargeAmount,
   }
 })
+
+/**
+ * Documents belonging to физические лица. They transact with companies, so the
+ * counterparty is always a company; the individual is identified by ПИНФЛ.
+ */
+const individualDocuments: AdminDocument[] = Array.from({ length: 300 }, (_, i) => {
+  const owner = individuals[int(0, individuals.length - 1)]
+  const counterparty = companies[int(0, companies.length - 1)]
+  const direction = chance(0.5) ? 'outgoing' : 'incoming'
+  const status = pick(DOC_STATUSES)
+  const createdDays = int(0, 120)
+  const sent = daysAgo(Math.max(0, createdDays - int(0, 2)))
+
+  // Individuals have no subscription quota — outgoing sends are free tier or PAYG.
+  let chargeType: AdminDocument['chargeType'] = null
+  let chargeAmount = 0
+  if (direction === 'outgoing' && status !== 'cancelled') {
+    if (chance(0.3)) {
+      chargeType = 'free_tier'
+    } else {
+      chargeType = 'payg'
+      chargeAmount = pricePerDocForVolume(owner.docsSentThisMonth)
+    }
+  }
+
+  const group = pick(DOC_TYPE_CATALOG)
+  const type: DocType = group.name
+  const subtype = group.subtypes.length > 0 ? pick(group.subtypes) : null
+
+  return {
+    id: `idoc-${i + 1}`,
+    number: `${type.replace(/[^А-ЯA-Z]/g, '').slice(0, 3)}-${String(500_000 + i).slice(-6)}`,
+    companyId: null,
+    userId: owner.id,
+    type,
+    subtype,
+    direction,
+    senderInn: direction === 'outgoing' ? owner.pinfl : counterparty.inn,
+    senderName: direction === 'outgoing' ? owner.fullName : counterparty.name,
+    receiverInn: direction === 'outgoing' ? counterparty.inn : owner.pinfl,
+    receiverName: direction === 'outgoing' ? counterparty.name : owner.fullName,
+    status,
+    amount: int(80_000, 40_000_000),
+    createdAt: daysAgo(createdDays),
+    sentAt: sent,
+    chargeType,
+    chargeAmount,
+  }
+})
+
+export const documents: AdminDocument[] = [...companyDocuments, ...individualDocuments]
 
 /* ----------------------------------------------------------------- payments */
 
@@ -753,6 +810,8 @@ export const usersByCompany = (companyId: string) =>
   platformUsers.filter((u) => u.companyId === companyId)
 export const documentsByCompany = (companyId: string) =>
   documents.filter((d) => d.companyId === companyId)
+export const documentsByUser = (userId: string) =>
+  documents.filter((d) => d.userId === userId)
 export const transactionsByCompany = (companyId: string) =>
   transactions.filter((t) => t.companyId === companyId)
 export const paymentsByCompany = (companyId: string) =>
