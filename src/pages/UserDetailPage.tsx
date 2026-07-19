@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Ban,
@@ -21,10 +21,7 @@ import {
   useUserEdits,
   withEdits,
 } from '@/data/userEdits'
-import {
-  tenantUserRoleLabel,
-  userKindLabel,
-} from '@/types/labels'
+import { userKindLabel } from '@/types/labels'
 import { PageCard, FormCard, PageHeader, Field } from '@/components/ui/PageCard'
 import { Tabs } from '@/components/ui/Tabs'
 import { DataTable } from '@/components/ui/DataTable'
@@ -126,6 +123,12 @@ export default function UserDetailPage() {
     )
   }, [docs, history])
 
+  // This page describes a физическое лицо. Employees are not standalone
+  // accounts — their context is the company they act for, so send them there.
+  if (user && user.kind === 'employee') {
+    return <Navigate to={user.companyId ? `/tenants/${user.companyId}` : '/users'} replace />
+  }
+
   if (!user) {
     return (
       <PageCard>
@@ -145,7 +148,6 @@ export default function UserDetailPage() {
   }
 
   const blocked = user.status === 'blocked'
-  const isIndividual = user.kind === 'individual'
 
   const docColumns: Column<AdminDocument>[] = [
     {
@@ -198,13 +200,11 @@ export default function UserDetailPage() {
     { key: 'charge', header: 'Списание', cell: (d) => <ChargeTypeBadge type={d.chargeType} /> },
   ]
 
-  const tabs = isIndividual
-    ? [
-        { key: 'overview', label: 'Обзор' },
-        { key: 'documents', label: 'Документы', count: docs.length },
-        { key: 'activity', label: 'Активность', count: feed.length },
-      ]
-    : [{ key: 'overview', label: 'Обзор' }]
+  const tabs = [
+    { key: 'overview', label: 'Обзор' },
+    { key: 'documents', label: 'Документы', count: docs.length },
+    { key: 'activity', label: 'Активность', count: feed.length },
+  ]
 
   return (
     <div className="flex flex-col gap-4">
@@ -220,11 +220,7 @@ export default function UserDetailPage() {
       <PageCard>
         <PageHeader
           title={user.fullName}
-          subtitle={
-            isIndividual
-              ? `${userKindLabel[user.kind]} · ПИНФЛ ${user.pinfl}`
-              : `${userKindLabel[user.kind]} · ${user.companyName ?? ''}`
-          }
+          subtitle={`${userKindLabel[user.kind]} · ПИНФЛ ${user.pinfl}`}
           actions={
             <>
               <UserStatusBadge status={user.status} />
@@ -260,29 +256,9 @@ export default function UserDetailPage() {
           <FormCard title="Личные данные">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="ФИО">{user.fullName}</Field>
-              {isIndividual && <Field label="ПИНФЛ">{user.pinfl}</Field>}
+              <Field label="ПИНФЛ">{user.pinfl}</Field>
               <Field label="Телефон">{user.phone}</Field>
-              {isIndividual && <Field label="Адрес">{user.address ?? '—'}</Field>}
-              {!isIndividual && (
-                <>
-                  <Field label="Компания">
-                    {user.companyName ? (
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/tenants/${user.companyId}`)}
-                        className="font-semibold text-Smart-blue transition hover:underline"
-                      >
-                        {user.companyName}
-                      </button>
-                    ) : (
-                      '—'
-                    )}
-                  </Field>
-                  <Field label="Роль в компании">
-                    {user.role ? tenantUserRoleLabel[user.role] : '—'}
-                  </Field>
-                </>
-              )}
+              <Field label="Адрес">{user.address ?? '—'}</Field>
             </div>
           </FormCard>
 
@@ -296,18 +272,17 @@ export default function UserDetailPage() {
             </div>
           </FormCard>
 
-          {user.balance !== null && (
-            <FormCard title="Баланс">
+          <FormCard title="Баланс">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-gray-500">Текущий баланс</span>
                   <span
                     className={cn(
                       'text-2xl leading-8 font-bold tabular-nums',
-                      user.balance <= 0 ? 'text-red-600' : 'text-slate-800',
+                      (user.balance ?? 0) <= 0 ? 'text-red-600' : 'text-slate-800',
                     )}
                   >
-                    {formatSum(user.balance)}
+                    {formatSum(user.balance ?? 0)}
                   </span>
                 </div>
                 <Field label="Отправлено документов за месяц">
@@ -347,8 +322,7 @@ export default function UserDetailPage() {
                   </ol>
                 </div>
               )}
-            </FormCard>
-          )}
+          </FormCard>
         </div>
       )}
 

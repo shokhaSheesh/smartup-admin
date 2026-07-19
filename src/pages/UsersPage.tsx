@@ -57,12 +57,6 @@ const STATUS_OPTIONS = [
 ]
 
 
-const BALANCE_OPTIONS = [
-  { value: ALL, label: 'Любой баланс' },
-  { value: 'positive', label: 'Положительный' },
-  { value: 'zero', label: 'Нулевой' },
-]
-
 const COMPANY_OPTIONS = [
   { value: ALL, label: 'Все компании' },
   ...companies.map((c) => ({ value: c.id, label: `${formatInn(c.inn)} · ${c.name}` })),
@@ -77,7 +71,6 @@ export default function UsersPage() {
   const [role, setRole] = useState(ALL)
   const [status, setStatus] = useState(ALL)
   const [companyId, setCompanyId] = useState(ALL)
-  const [balance, setBalance] = useState(ALL)
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
@@ -97,7 +90,7 @@ export default function UsersPage() {
   const showingIndividuals = kind === 'individual'
 
   const filtersActive =
-    role !== ALL || status !== ALL || companyId !== ALL || balance !== ALL
+    role !== ALL || status !== ALL || companyId !== ALL
 
   const counts = useMemo(
     () => ({
@@ -118,10 +111,6 @@ export default function UsersPage() {
         if (role !== ALL && u.role !== role) return false
         if (companyId !== ALL && u.companyId !== companyId) return false
       }
-      if (u.kind === 'individual' && balance !== ALL) {
-        if (balance === 'zero' && (u.balance ?? 0) > 0) return false
-        if (balance === 'positive' && (u.balance ?? 0) <= 0) return false
-      }
       if (!q) return true
 
       // Search only over fields the selected kind actually has: an individual
@@ -135,7 +124,7 @@ export default function UsersPage() {
             (u.companyName?.toLowerCase().includes(q) ?? false) ||
             (u.companyInn?.includes(q) ?? false)
     })
-  }, [allUsers, search, kind, role, status, companyId, balance])
+  }, [allUsers, search, kind, role, status, companyId])
 
   const rows = paginate(filtered, page, pageSize)
 
@@ -247,23 +236,28 @@ export default function UsersPage() {
         <div onClick={(e) => e.stopPropagation()}>
           <RowMenu
             items={[
-              {
-                label: 'Открыть профиль',
-                icon: <User className="size-4" />,
-                onClick: () => navigate(`/users/${u.id}`),
-              },
-              // Balance is the only editable field, and only individuals have one.
+              // Individuals have a profile of their own; an employee's context is
+              // the company they act for.
               u.kind === 'individual'
                 ? {
-                    label: 'Изменить баланс',
-                    icon: <Wallet className="size-4" />,
-                    onClick: () => setAdjustTarget(u),
+                    label: 'Открыть профиль',
+                    icon: <User className="size-4" />,
+                    onClick: () => navigate(`/users/${u.id}`),
                   }
                 : {
                     label: 'Открыть компанию',
                     icon: <Building2 className="size-4" />,
                     onClick: () => u.companyId && navigate(`/tenants/${u.companyId}`),
                   },
+              ...(u.kind === 'individual'
+                ? [
+                    {
+                      label: 'Изменить баланс',
+                      icon: <Wallet className="size-4" />,
+                      onClick: () => setAdjustTarget(u),
+                    },
+                  ]
+                : []),
               statusOf(u) === 'blocked'
                 ? {
                     label: 'Разблокировать',
@@ -336,14 +330,6 @@ export default function UsersPage() {
               value={status}
               onChange={resetPage(setStatus)}
             />
-            {showingIndividuals && (
-              <Select
-                label="Баланс"
-                options={BALANCE_OPTIONS}
-                value={balance}
-                onChange={resetPage(setBalance)}
-              />
-            )}
             {!showingIndividuals && (
               <>
                 <Select
@@ -392,8 +378,6 @@ export default function UsersPage() {
             if (k === 'individual') {
               setRole(ALL)
               setCompanyId(ALL)
-            } else {
-              setBalance(ALL)
             }
             setSearch('')
             setPage(1)
@@ -410,7 +394,11 @@ export default function UsersPage() {
           )}
           rows={rows}
           rowKey={(u) => u.id}
-          onRowClick={(u) => navigate(`/users/${u.id}`)}
+          onRowClick={(u) =>
+            u.kind === 'individual'
+              ? navigate(`/users/${u.id}`)
+              : u.companyId && navigate(`/tenants/${u.companyId}`)
+          }
           emptyMessage="Пользователи не найдены"
         />
 
