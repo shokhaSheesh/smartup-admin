@@ -72,7 +72,7 @@ function toCsv(rows: AdminDocument[]): string {
     'Получатель',
     'Статус',
     'Сумма',
-    'Отправлен',
+    'Отправлен / Получен',
     'Списание',
     'Сумма списания',
   ]
@@ -257,7 +257,7 @@ export default function DocumentsPage() {
     },
     {
       key: 'sentAt',
-      header: 'Отправлен',
+      header: 'Отправлен / Получен',
       cell: (d) => (
         <span className="text-sm whitespace-nowrap text-gray-900">{formatDate(d.sentAt)}</span>
       ),

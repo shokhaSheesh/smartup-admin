@@ -401,7 +401,7 @@ export default function TenantDetailPage() {
     },
     {
       key: 'sentAt',
-      header: 'Отправлен',
+      header: 'Отправлен / Получен',
       cell: (d) => <span className="whitespace-nowrap">{formatDate(d.sentAt)}</span>,
     },
     { key: 'charge', header: 'Списание', cell: (d) => <ChargeTypeBadge type={d.chargeType} /> },

@@ -151,12 +151,12 @@ export default function DocumentDetailPage() {
   // owner's on incoming ones. The counterparty's staff are never named here.
   const outgoing = doc.direction === 'outgoing'
 
-  if (doc.sentAt) {
+  if (outgoing && doc.sentAt) {
     changeLog.push({
       id: 'sent',
       at: doc.sentAt,
       title: 'Документ отправлен',
-      by: outgoing ? (userNameById(doc.sentBy) ?? undefined) : undefined,
+      by: userNameById(doc.sentBy) ?? undefined,
       icon: <Send className="size-4 text-Smart-blue" />,
     })
   }
@@ -262,7 +262,9 @@ export default function DocumentDetailPage() {
             <DocStatusBadge status={doc.status} />
           </Field>
           <Field label="Сумма">{formatMoney(doc.amount)} сум</Field>
-          <Field label="Отправлен">{formatDateTime(doc.sentAt)}</Field>
+          <Field label={outgoing ? 'Отправлен' : 'Получен'}>
+            {formatDateTime(doc.sentAt)}
+          </Field>
           <Field label="Списание">
             <span className="flex flex-col items-start gap-1">
               <ChargeTypeBadge type={doc.chargeType} />
