@@ -217,11 +217,14 @@ export default function DocumentsPage() {
     },
     {
       key: 'type',
-      header: 'Тип',
+      header: 'Тип документа',
       cell: (d) => (
         <div className="flex flex-col">
           <span className="text-sm text-gray-900">{d.type}</span>
-          <span className="text-xs text-gray-500">{docDirectionLabel[d.direction]}</span>
+          <span className="text-xs text-gray-500">
+            {d.subtype ? `${d.subtype} · ` : ''}
+            {docDirectionLabel[d.direction]}
+          </span>
         </div>
       ),
     },

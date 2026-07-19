@@ -42,8 +42,7 @@ export const chargeTypeLabel: Record<ChargeType, string> = {
 }
 
 export const docStatusLabel: Record<DocStatus, string> = {
-  draft: 'Черновик',
-  sent: 'Отправлен',
+  pending: 'Ожидает',
   signed: 'Подписан',
   rejected: 'Отклонён',
   cancelled: 'Отменён',

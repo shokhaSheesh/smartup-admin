@@ -49,8 +49,7 @@ const billingModeStyles: Record<BillingMode, string> = {
 }
 
 const docStyles: Record<DocStatus, string> = {
-  draft: 'bg-gray-100 text-gray-500',
-  sent: 'bg-blue-50 text-Smart-blue',
+  pending: 'bg-amber-50 text-amber-500',
   signed: 'bg-green-100 text-emerald-600',
   rejected: 'bg-red-100 text-red-600',
   cancelled: 'bg-gray-100 text-gray-500',

@@ -11,7 +11,7 @@ export type SubscriptionStatus =
 export type OverageMode = null | 'payg'
 export type ChargeType = 'free_tier' | 'quota' | 'payg' | 'payg_overage'
 export type DocDirection = 'incoming' | 'outgoing'
-export type DocStatus = 'draft' | 'sent' | 'signed' | 'rejected' | 'cancelled'
+export type DocStatus = 'pending' | 'signed' | 'rejected' | 'cancelled'
 export type UserStatus = 'active' | 'blocked'
 export type TenantUserRole = 'director' | 'accountant' | 'operator'
 export type AdminRole = 'super_admin' | 'support' | 'finance' | 'analyst'
@@ -32,25 +32,64 @@ export type AdjustmentCategory =
 export type AuditResult = 'success' | 'denied'
 
 /** The 16 document types on the platform. */
-export const DOC_TYPES = [
-  'Счёт-фактура',
-  'Акт выполненных работ',
-  'ТТН',
-  'Договор',
-  'Доверенность',
-  'Счёт на оплату',
-  'Накладная',
-  'Акт сверки',
-  'Дополнительное соглашение',
-  'Возвратная накладная',
-  'Исправленная счёт-фактура',
-  'Дополнительная счёт-фактура',
-  'Единый счёт-фактура',
-  'Акт приёма-передачи',
-  'Гарантийное письмо',
-  'Прочий документ',
-] as const
-export type DocType = (typeof DOC_TYPES)[number]
+/**
+ * Document taxonomy. Most invoice-family types carry a subtype (вид); the rest
+ * have none, in which case `subtype` on a document is null.
+ */
+export type DocTypeGroup = {
+  name: string
+  subtypes: string[]
+}
+
+/** Subtypes shared by the two счёт-фактура families. */
+const INVOICE_SUBTYPES = [
+  'Стандартный',
+  'Дополнительный',
+  'Исправленный',
+  'Возмещение расходов (газ, электроэнергия и др.)',
+  'Дополнительный (возмещение затрат)',
+  'Исправленный (возмещение затрат)',
+  'Без оплаты',
+  'Исправленный (без оплаты)',
+  'Дополнительный (без оплаты)',
+]
+
+/** Стандартный / Дополнительный / Исправленный — the short subtype set. */
+const BASE_SUBTYPES = ['Стандартный', 'Дополнительный', 'Исправленный']
+
+export const DOC_TYPE_CATALOG: DocTypeGroup[] = [
+  { name: 'Счет-фактура (без акта)', subtypes: INVOICE_SUBTYPES },
+  { name: 'Счет-фактура (ФАРМ)', subtypes: INVOICE_SUBTYPES },
+  { name: 'Товарно-транспортная накладная (TTN)', subtypes: [] },
+  { name: 'TTN (новый формат)', subtypes: BASE_SUBTYPES },
+  { name: 'Гибридная счет-фактура', subtypes: BASE_SUBTYPES },
+  { name: 'Гибридная счет-фактура (ФАРМ)', subtypes: BASE_SUBTYPES },
+  { name: 'ЭСФ для строительно-монтажных работ (СМР)', subtypes: BASE_SUBTYPES },
+  { name: 'Акт', subtypes: [] },
+  { name: 'Доверенность', subtypes: [] },
+  { name: 'Доверенность (новая)', subtypes: [] },
+  { name: 'Договор (НК)', subtypes: [] },
+  { name: 'Произвольный документ', subtypes: [] },
+  { name: 'Акт сверки', subtypes: [] },
+  { name: 'Многосторонний произвольный документ', subtypes: [] },
+  { name: 'Протокол собрания учредителей', subtypes: [] },
+  { name: 'Письмо налогового комитета (Письмо НК)', subtypes: [] },
+]
+
+/** Flat list of type names, for filter dropdowns. */
+export const DOC_TYPES = DOC_TYPE_CATALOG.map((g) => g.name)
+
+export type DocType = string
+
+/** Subtypes available for a type, empty when the type has none. */
+export function subtypesFor(typeName: string): string[] {
+  return DOC_TYPE_CATALOG.find((g) => g.name === typeName)?.subtypes ?? []
+}
+
+/** "Тип: Подвид" or just the type when there is no subtype. */
+export function docTypeLabel(type: string, subtype: string | null): string {
+  return subtype ? `${type}: ${subtype}` : type
+}
 
 export type Company = {
   id: string
@@ -199,6 +238,8 @@ export type AdminDocument = {
   number: string
   companyId: string
   type: DocType
+  /** Вид документа — null for types that have no subtypes. */
+  subtype: string | null
   direction: DocDirection
   senderInn: string
   senderName: string

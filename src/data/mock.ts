@@ -2,7 +2,7 @@
  * Deterministic mock dataset for the super-admin panel.
  * Seeded PRNG so the data is stable across reloads — no backend yet.
  */
-import { DOC_TYPES } from '@/types/admin'
+import { DOC_TYPE_CATALOG, DOC_TYPES } from '@/types/admin'
 import type {
   AdminDocument,
   AdminUser,
@@ -381,7 +381,9 @@ export const tenantUsers: TenantUser[] = companies.flatMap((c, ci) => {
 
 /* ---------------------------------------------------------------- documents */
 
-const DOC_STATUSES: DocStatus[] = ['draft', 'sent', 'signed', 'signed', 'signed', 'rejected', 'cancelled']
+const DOC_STATUSES: DocStatus[] = [
+  'pending', 'signed', 'signed', 'signed', 'rejected', 'cancelled',
+]
 
 export const documents: AdminDocument[] = Array.from({ length: 420 }, (_, i) => {
   const company = companies[int(0, companies.length - 1)]
@@ -389,7 +391,7 @@ export const documents: AdminDocument[] = Array.from({ length: 420 }, (_, i) => 
   const direction = chance(0.55) ? 'outgoing' : 'incoming'
   const status = pick(DOC_STATUSES)
   const createdDays = int(0, 120)
-  const sent = status === 'draft' ? null : daysAgo(Math.max(0, createdDays - int(0, 2)))
+  const sent = daysAgo(Math.max(0, createdDays - int(0, 2)))
 
   // Only outgoing documents on successful send are ever charged.
   let chargeType: AdminDocument['chargeType'] = null
@@ -409,13 +411,16 @@ export const documents: AdminDocument[] = Array.from({ length: 420 }, (_, i) => 
     }
   }
 
-  const type: DocType = pick(DOC_TYPES)
+  const group = pick(DOC_TYPE_CATALOG)
+  const type: DocType = group.name
+  const subtype = group.subtypes.length > 0 ? pick(group.subtypes) : null
 
   return {
     id: `doc-${i + 1}`,
-    number: `${type.slice(0, 2).toUpperCase()}-${String(100_000 + i).slice(-6)}`,
+    number: `${type.replace(/[^А-ЯA-Z]/g, '').slice(0, 3)}-${String(100_000 + i).slice(-6)}`,
     companyId: company.id,
     type,
+    subtype,
     direction,
     senderInn: direction === 'outgoing' ? company.inn : counterparty.inn,
     senderName: direction === 'outgoing' ? company.name : counterparty.name,

@@ -1,25 +1,31 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
+  ArrowLeft,
   Ban,
   CheckCircle2,
   CreditCard,
+  FileCheck,
   FileText,
+  FileX,
   Info,
   RefreshCw,
   Repeat,
+  Send,
   ShieldAlert,
+  UserPlus,
   Wallet,
   Wand2,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type {
   AdminDocument,
+  DocStatus,
   TenantStatus,
   TenantUser,
 } from '@/types/admin'
+import { DOC_TYPES, docTypeLabel, subtypesFor } from '@/types/admin'
 import {
-  auditLog,
   balanceByCompany,
   companyById,
   documentsByCompany,
@@ -29,9 +35,9 @@ import {
   usersByCompany,
 } from '@/data/mock'
 import {
+  docStatusLabel,
   paymentMethodLabel,
   tenantUserRoleLabel,
-  txTypeLabel,
 } from '@/types/labels'
 import { PageCard, FormCard, PageHeader, Field } from '@/components/ui/PageCard'
 import { Tabs } from '@/components/ui/Tabs'
@@ -46,15 +52,14 @@ import {
   UserStatusBadge,
 } from '@/components/ui/StatusBadge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { TariffEditModal } from '@/components/tenants/TariffEditModal'
+import { Select } from '@/components/ui/Select'
+import { DateRangeFilter, EMPTY_RANGE, inRange } from '@/components/ui/DateRangeFilter'
+import type { DateRange } from '@/components/ui/DateRangeFilter'
 import {
-  applyBalanceAdjustment,
   applyTenantEdit,
   effectiveTerms,
   useTenantEdits,
 } from '@/data/tenantEdits'
-import { Modal } from '@/components/ui/Modal'
-import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import {
   formatDate,
@@ -68,19 +73,31 @@ import {
 } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
+/** Sentinel for "no filter selected". */
+const ALL = 'all'
+
 type FeedItem = {
   id: string
   at: string
-  kind: 'transaction' | 'payment' | 'audit'
+  kind:
+    | 'doc_sent'
+    | 'doc_signed'
+    | 'doc_rejected'
+    | 'topup'
+    | 'plan_bought'
+    | 'employee_added'
   title: string
   detail: string
   amount: number | null
 }
 
 const feedIcon: Record<FeedItem['kind'], ReactNode> = {
-  transaction: <Wallet className="size-4 text-Smart-blue" />,
-  payment: <CreditCard className="size-4 text-emerald-600" />,
-  audit: <ShieldAlert className="size-4 text-amber-500" />,
+  doc_sent: <Send className="size-4 text-Smart-blue" />,
+  doc_signed: <FileCheck className="size-4 text-emerald-600" />,
+  doc_rejected: <FileX className="size-4 text-red-500" />,
+  topup: <CreditCard className="size-4 text-emerald-600" />,
+  plan_bought: <Wallet className="size-4 text-Smart-blue" />,
+  employee_added: <UserPlus className="size-4 text-slate-500" />,
 }
 
 /** Actions confirmed through the reason dialog on this page. */
@@ -94,52 +111,114 @@ export default function TenantDetailPage() {
   const company = companyById(id)
 
   const [tab, setTab] = useState('overview')
-  const [editOpen, setEditOpen] = useState(false)
   const edits = useTenantEdits()
   const [pending, setPending] = useState<PendingAction | null>(null)
-  const [adjustOpen, setAdjustOpen] = useState(false)
-  const [adjustAmount, setAdjustAmount] = useState('')
-  const [adjustDirection, setAdjustDirection] = useState<'credit' | 'debit'>('credit')
-  const [adjustReason, setAdjustReason] = useState('')
-  const [adjustTouched, setAdjustTouched] = useState(false)
+  const [docType, setDocType] = useState<string>(ALL)
+  const [docSubtype, setDocSubtype] = useState<string>(ALL)
+  const [docStatus, setDocStatus] = useState<string>(ALL)
+  const [docRange, setDocRange] = useState<DateRange>(EMPTY_RANGE)
   const [overageMode, setOverageMode] = useState<'payg' | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
 
   const users = useMemo(() => (company ? usersByCompany(company.id) : []), [company])
   const docs = useMemo(() => (company ? documentsByCompany(company.id) : []), [company])
 
+  const docSubtypeOptions = useMemo(
+    () => (docType === ALL ? [] : subtypesFor(docType)),
+    [docType],
+  )
+
+  const filteredDocs = useMemo(
+    () =>
+      docs.filter((d) => {
+        if (docType !== ALL && d.type !== docType) return false
+        if (docSubtype !== ALL && d.subtype !== docSubtype) return false
+        if (docStatus !== ALL && d.status !== docStatus) return false
+        if (docRange.from || docRange.to) {
+          if (!inRange(d.sentAt, docRange)) return false
+        }
+        return true
+      }),
+    [docs, docType, docSubtype, docStatus, docRange],
+  )
+
+  /**
+   * Company activity is limited to the six events that describe what the
+   * company itself did — not admin actions (those live in the audit log).
+   */
   const feed = useMemo<FeedItem[]>(() => {
     if (!company) return []
-    const txs: FeedItem[] = transactionsByCompany(company.id).map((t) => ({
-      id: `tx-${t.id}`,
-      at: t.createdAt,
-      kind: 'transaction',
-      title: txTypeLabel[t.type],
-      detail:
-        t.documentNumber ??
-        t.reason ??
-        (t.adminName ? `Администратор: ${t.adminName}` : 'Операция по балансу'),
-      amount: t.amount,
-    }))
-    const pays: FeedItem[] = paymentsByCompany(company.id).map((p) => ({
-      id: `pay-${p.id}`,
-      at: p.createdAt,
-      kind: 'payment',
-      title: `Платёж — ${paymentMethodLabel[p.method]}`,
-      detail: p.cardMask ? `${p.providerRef} · ${p.cardMask}` : p.providerRef,
-      amount: p.amount,
-    }))
-    const audits: FeedItem[] = auditLog
-      .filter((a) => a.target === company.inn)
-      .map((a) => ({
-        id: `aud-${a.id}`,
-        at: a.createdAt,
-        kind: 'audit',
-        title: a.action,
-        detail: `${a.adminName} · ${a.details}`,
-        amount: null,
+
+    const docEvents: FeedItem[] = documentsByCompany(company.id).flatMap((d) => {
+      const items: FeedItem[] = []
+      if (d.direction === 'outgoing' && d.sentAt) {
+        items.push({
+          id: `doc-sent-${d.id}`,
+          at: d.sentAt,
+          kind: 'doc_sent',
+          title: 'Документ отправлен',
+          detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
+          amount: null,
+        })
+      }
+      if (d.status === 'signed') {
+        items.push({
+          id: `doc-signed-${d.id}`,
+          at: d.sentAt ?? d.createdAt,
+          kind: 'doc_signed',
+          title: 'Документ подписан',
+          detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
+          amount: null,
+        })
+      }
+      if (d.status === 'rejected') {
+        items.push({
+          id: `doc-rejected-${d.id}`,
+          at: d.sentAt ?? d.createdAt,
+          kind: 'doc_rejected',
+          title: 'Документ отклонён',
+          detail: `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
+          amount: null,
+        })
+      }
+      return items
+    })
+
+    const topUps: FeedItem[] = paymentsByCompany(company.id)
+      .filter((p) => p.status === 'success')
+      .map((p) => ({
+        id: `topup-${p.id}`,
+        at: p.createdAt,
+        kind: 'topup',
+        title: 'Пополнение баланса',
+        detail: paymentMethodLabel[p.method],
+        amount: p.amount,
       }))
-    return [...txs, ...pays, ...audits].sort((a, b) => +new Date(b.at) - +new Date(a.at))
+
+    const planPurchases: FeedItem[] = transactionsByCompany(company.id)
+      .filter((t) => t.type === 'subscription_payment')
+      .map((t) => ({
+        id: `plan-${t.id}`,
+        at: t.createdAt,
+        kind: 'plan_bought',
+        title: 'Оплачен тарифный план',
+        detail: subscriptionByCompany(company.id)?.planName ?? 'Тарифный план',
+        amount: t.amount,
+      }))
+
+    const hires: FeedItem[] = usersByCompany(company.id).map((u) => ({
+      id: `hire-${u.id}`,
+      // No hire timestamp in the model yet — last login is the closest proxy.
+      at: u.lastLoginAt,
+      kind: 'employee_added',
+      title: 'Добавлен сотрудник',
+      detail: `${u.fullName} · ${tenantUserRoleLabel[u.role]}`,
+      amount: null,
+    }))
+
+    return [...docEvents, ...topUps, ...planPurchases, ...hires].sort(
+      (a, b) => +new Date(b.at) - +new Date(a.at),
+    )
   }, [company])
 
   if (!company) {
@@ -205,7 +284,16 @@ export default function TenantDetailPage() {
 
   const docColumns: Column<AdminDocument>[] = [
     { key: 'number', header: '№', cell: (d) => <span className="font-medium text-slate-800">{d.number}</span> },
-    { key: 'type', header: 'Тип', cell: (d) => <span className="whitespace-nowrap">{d.type}</span> },
+    {
+      key: 'type',
+      header: 'Тип документа',
+      cell: (d) => (
+        <div className="flex flex-col">
+          <span className="text-slate-800">{d.type}</span>
+          {d.subtype && <span className="text-xs text-gray-500">{d.subtype}</span>}
+        </div>
+      ),
+    },
     {
       key: 'direction',
       header: 'Направление',
@@ -232,11 +320,6 @@ export default function TenantDetailPage() {
       header: 'Сумма',
       cls: 'text-right',
       cell: (d) => <span className="tabular-nums">{formatMoney(d.amount)}</span>,
-    },
-    {
-      key: 'createdAt',
-      header: 'Создан',
-      cell: (d) => <span className="whitespace-nowrap">{formatDate(d.createdAt)}</span>,
     },
     {
       key: 'sentAt',
@@ -275,11 +358,17 @@ export default function TenantDetailPage() {
     { key: 'activity', label: 'Активность', count: feed.length },
   ]
 
-  const adjustInvalid =
-    adjustReason.trim().length === 0 || !Number.isFinite(Number(adjustAmount)) || Number(adjustAmount) <= 0
-
   return (
     <div className="flex flex-col gap-4">
+      <button
+        type="button"
+        onClick={() => navigate('/tenants')}
+        className="flex w-fit items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900"
+      >
+        <ArrowLeft className="size-4" />
+        К списку компаний
+      </button>
+
       <PageCard>
         <PageHeader
           title={company.name}
@@ -412,18 +501,7 @@ export default function TenantDetailPage() {
           {subscription ? (
             <FormCard
               title="Подписка"
-              action={
-                <div className="flex items-center gap-3">
-                  <SubscriptionStatusBadge status={subscription.status} />
-                  <button
-                    type="button"
-                    onClick={() => setEditOpen(true)}
-                    className="text-sm font-semibold text-Smart-blue transition hover:underline"
-                  >
-                    Изменить тариф
-                  </button>
-                </div>
-              }
+              action={<SubscriptionStatusBadge status={subscription.status} />}
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="План">{terms.planName ?? subscription.planName}</Field>
@@ -474,15 +552,6 @@ export default function TenantDetailPage() {
             /* No subscription record, but an admin has assigned a plan by hand. */
             <FormCard
               title="Подписка"
-              action={
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(true)}
-                  className="text-sm font-semibold text-Smart-blue transition hover:underline"
-                >
-                  Изменить тариф
-                </button>
-              }
             >
               <div className="mb-4 flex items-start gap-2 rounded-lg bg-Smart-blue/5 px-3.5 py-2.5">
                 <Wand2 className="mt-0.5 size-4 shrink-0 text-Smart-blue" />
@@ -514,15 +583,6 @@ export default function TenantDetailPage() {
           ) : (
             <FormCard
               title="Подписка"
-              action={
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(true)}
-                  className="text-sm font-semibold text-Smart-blue transition hover:underline"
-                >
-                  Назначить план
-                </button>
-              }
             >
               <p className="text-sm text-gray-500">
                 У компании нет подписки — оплата производится за каждый отправленный документ с
@@ -533,22 +593,6 @@ export default function TenantDetailPage() {
 
           <FormCard
             title="Баланс и лимиты"
-            action={
-              <Button
-                hierarchy="secondary-gray"
-                size="md"
-                leadingIcon={<Wallet className="size-4" />}
-                onClick={() => {
-                  setAdjustAmount('')
-                  setAdjustReason('')
-                  setAdjustTouched(false)
-                  setAdjustDirection('credit')
-                  setAdjustOpen(true)
-                }}
-              >
-                Ручная корректировка
-              </Button>
-            }
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Текущий баланс">
@@ -585,9 +629,53 @@ export default function TenantDetailPage() {
               IP-адрес и номер документа.
             </span>
           </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="sm:col-span-2">
+              <DateRangeFilter
+                label="Период отправки"
+                value={docRange}
+                onChange={setDocRange}
+              />
+            </div>
+            <Select
+              label="Тип документа"
+              value={docType}
+              onChange={(v) => {
+                setDocType(v)
+                setDocSubtype(ALL)
+              }}
+              options={[
+                { value: ALL, label: 'Все типы' },
+                ...DOC_TYPES.map((t) => ({ value: t, label: t })),
+              ]}
+            />
+            <Select
+              label="Вид документа"
+              value={docSubtype}
+              onChange={setDocSubtype}
+              options={[
+                { value: ALL, label: 'Все виды' },
+                ...docSubtypeOptions.map((s) => ({ value: s, label: s })),
+              ]}
+            />
+            <Select
+              label="Статус"
+              value={docStatus}
+              onChange={setDocStatus}
+              options={[
+                { value: ALL, label: 'Любой статус' },
+                ...(Object.keys(docStatusLabel) as DocStatus[]).map((s) => ({
+                  value: s,
+                  label: docStatusLabel[s],
+                })),
+              ]}
+            />
+          </div>
+
           <DataTable
             columns={docColumns}
-            rows={docs}
+            rows={filteredDocs}
             rowKey={(d) => d.id}
             onRowClick={(d) => navigate(`/documents/${d.id}`)}
             emptyMessage="Документы не найдены"
@@ -653,106 +741,6 @@ export default function TenantDetailPage() {
             ? pending.description
             : `Компания: ${company.name} (ИНН ${formatInn(company.inn)}).`
         }
-      />
-
-      <Modal
-        open={adjustOpen}
-        onClose={() => setAdjustOpen(false)}
-        title="Ручная корректировка баланса"
-        maxWidth="max-w-lg"
-      >
-        <div className="flex flex-col gap-4 px-6 py-5">
-          <div className="flex w-full items-center gap-2 rounded-lg bg-gray-50 p-1 outline outline-1 outline-offset-[-1px] outline-gray-200">
-            {(['credit', 'debit'] as const).map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setAdjustDirection(d)}
-                className={cn(
-                  'flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-md px-3 py-2 text-sm leading-5 font-semibold transition',
-                  adjustDirection === d
-                    ? 'bg-white text-slate-700 shadow-[0px_1px_2px_0px_rgba(16,24,40,0.06)]'
-                    : 'text-gray-500 hover:text-slate-700',
-                )}
-              >
-                {d === 'credit' ? 'Пополнение' : 'Списание'}
-              </button>
-            ))}
-          </div>
-
-          <Input
-            label="Сумма, сум"
-            inputMode="numeric"
-            value={adjustAmount}
-            onChange={(e) => setAdjustAmount(e.target.value)}
-            placeholder="например, 250000"
-          />
-
-          <div className="flex w-full flex-col items-start gap-1.5">
-            <span className="text-sm leading-5 font-medium text-slate-700">
-              Причина<span className="text-red-500"> *</span>
-            </span>
-            <div
-              className={cn(
-                'flex w-full items-center gap-2 overflow-hidden rounded-lg bg-white px-3.5 py-2.5 outline outline-1 outline-offset-[-1px] transition',
-                adjustTouched && adjustReason.trim().length === 0
-                  ? 'outline-red-300 focus-within:outline-red-400'
-                  : 'outline-gray-200 focus-within:outline-Smart-blue',
-              )}
-            >
-              <textarea
-                rows={3}
-                value={adjustReason}
-                onChange={(e) => setAdjustReason(e.target.value)}
-                placeholder="Причина обязательна — попадёт в журнал аудита"
-                className="flex-1 resize-none bg-transparent text-base leading-6 font-normal text-neutral-900 outline-none placeholder:text-gray-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2 rounded-lg bg-gray-50 px-3.5 py-2.5">
-            <ShieldAlert className="mt-0.5 size-4 shrink-0 text-gray-400" />
-            <span className="text-sm text-gray-500">
-              Корректировка баланса записывается в журнал аудита с вашим именем и IP-адресом.
-            </span>
-          </div>
-
-          <div className="flex items-center justify-end gap-3">
-            <Button hierarchy="secondary-gray" size="md" onClick={() => setAdjustOpen(false)}>
-              Отменить
-            </Button>
-            <Button
-              size="md"
-              onClick={() => {
-                setAdjustTouched(true)
-                if (adjustInvalid) return
-                const signed =
-                  adjustDirection === 'credit' ? Number(adjustAmount) : -Number(adjustAmount)
-                setBanner(
-                  `Корректировка баланса ${formatSigned(signed)} сум применена. Причина: ${adjustReason.trim()}`,
-                )
-                setAdjustOpen(false)
-              }}
-            >
-              Применить
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <TariffEditModal
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        company={company}
-        onSave={(companyId, patch, reason, adjustment) => {
-          applyTenantEdit(companyId, patch)
-          if (adjustment) applyBalanceAdjustment(companyId, adjustment)
-          setBanner(
-            adjustment
-              ? `Тариф и баланс обновлены. Причина: ${reason || adjustment.reason}`
-              : `Тариф обновлён. Причина: ${reason}`,
-          )
-        }}
       />
 
       <FileTextSpacer />
