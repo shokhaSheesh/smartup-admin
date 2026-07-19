@@ -73,7 +73,6 @@ export type Company = {
   status: TenantStatus
   statusReason: string | null
   billingMode: BillingMode
-  customPricePerDoc: number | null
   planName: string | null
   balance: number
   docsSentThisMonth: number

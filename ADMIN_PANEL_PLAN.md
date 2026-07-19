@@ -84,10 +84,10 @@ When a subscription's quota hits zero mid-period, sending **pauses** and the ten
 | 2 | 1 001 – 10 000 | 350 sum |
 | 3 | 10 001+ | 250 sum |
 
-Tier is evaluated on the tenant's rolling monthly sent count. A tenant can also be pinned to a **custom price or custom plan** (negotiated deals).
+Tier is evaluated on the tenant's monthly sent count. **There is no per-tenant custom price.** A negotiated deal is expressed as a custom *plan* (quota, expiry and employee limit are editable per tenant), never as a flat per-document price — a flat price would silently opt that tenant out of the tier table and leave two pricing models in play with nothing on screen saying which applied.
 
 ### Overrides supported
-- **Custom price / custom plan per tenant** — overrides the standard tier table
+- **Per-tenant plan terms** — plan, expiry date, document quota and employee limit are editable per tenant (see §4.4)
 - **Manual balance adjustment** — admin credits/debits a balance by hand; **reason is mandatory** and written to the audit log
 
 ### Charge types (used across Documents, Transactions, reporting)
@@ -160,7 +160,7 @@ Leads with **platform usage + revenue** (as chosen).
 
 **Columns:** ИНН/ПИНФЛ · Company name · Status (Active/Blocked/Suspended) · Billing mode (Subscription / PAYG) · Plan · Balance · Docs sent (30d) · Employees · Registered at · Last activity
 
-**Filters:** status · billing mode · plan · region · registered date range · balance range · has custom pricing · activity (active/dormant)
+**Filters:** status · billing mode · plan · region · registered date range · balance range · activity (active/dormant)
 
 **Search:** ИНН, company name, director, phone, email
 
@@ -188,8 +188,8 @@ Employees of this company.
 - **If quota exhausted:** banner showing the state and the three resolution buttons (re-buy · switch plan · enable pay-per-doc)
 - **Overage this period:** documents sent past quota + sum charged
 - Balance (current) + top-up history
-- Effective price per document (tier or custom)
-- **Custom pricing override** — set custom per-doc price or pin a custom plan
+- Effective price per document (from the volume tier)
+- **Plan terms override** — edit plan, expiry, document quota and employee limit; values diverging from the plan default are flagged
 - **Manual adjustment** — amount, direction (credit/debit), mandatory reason
 - Invoice/receipt history
 
@@ -319,7 +319,7 @@ Platform-wide configuration.
 Company        id, inn, name, address, region, oked, director_pinfl, director_name,
                accountant_pinfl, accountant_name, phone, mobile, email, website,
                mfo, bank_name, account_number, status, status_reason,
-               billing_mode (subscription|payg), custom_price_per_doc?, created_at, last_active_at
+               billing_mode (subscription|payg), created_at, last_active_at
 
 TenantUser     id, company_id, pinfl, full_name, role, email, phone, status,
                eimzo_bound, last_login_at

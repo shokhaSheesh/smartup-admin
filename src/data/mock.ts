@@ -197,9 +197,11 @@ export const billingSettings = {
   rounding: 'До целого сума',
 }
 
-/** Price per document for a tenant, honouring any custom override. */
+/**
+ * Price per document for a tenant — determined solely by the volume tier its
+ * monthly sent count falls into.
+ */
 export function effectivePricePerDoc(company: Company): number {
-  if (company.customPricePerDoc !== null) return company.customPricePerDoc
   const volume = company.docsSentThisMonth
   const tier =
     priceTiers.find(
@@ -250,7 +252,6 @@ function makeCompany(i: number): Company {
           ])
         : null,
     billingMode,
-    customPricePerDoc: chance(0.1) ? pick([200, 220, 280, 300]) : null,
     planName: null,
     balance: billingMode === 'subscription' ? int(0, 400_000) : int(-0, 3_500_000),
     docsSentThisMonth: chance(0.15) ? int(1_100, 24_000) : int(0, 900),

@@ -87,7 +87,6 @@ const feedIcon: Record<FeedItem['kind'], ReactNode> = {
 type PendingAction =
   | { kind: 'status'; next: TenantStatus }
   | { kind: 'resolution'; label: string; description: string }
-  | { kind: 'customPrice'; value: number | null }
 
 export default function TenantDetailPage() {
   const { id = '' } = useParams()
@@ -103,10 +102,6 @@ export default function TenantDetailPage() {
   const [adjustDirection, setAdjustDirection] = useState<'credit' | 'debit'>('credit')
   const [adjustReason, setAdjustReason] = useState('')
   const [adjustTouched, setAdjustTouched] = useState(false)
-  const [priceDraft, setPriceDraft] = useState('')
-  const [customPrice, setCustomPrice] = useState<number | null>(
-    company?.customPricePerDoc ?? null,
-  )
   const [overageMode, setOverageMode] = useState<'payg' | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
 
@@ -193,13 +188,6 @@ export default function TenantDetailPage() {
     } else if (pending.kind === 'resolution') {
       if (pending.label === 'Включить оплату за документ') setOverageMode('payg')
       setBanner(`${pending.label} — применено. Причина: ${reason}`)
-    } else {
-      setCustomPrice(pending.value)
-      setBanner(
-        pending.value === null
-          ? `Кастомная цена снята. Причина: ${reason}`
-          : `Кастомная цена: ${formatSum(pending.value)} за документ. Причина: ${reason}`,
-      )
     }
     setPending(null)
   }
@@ -584,41 +572,7 @@ export default function TenantDetailPage() {
             </div>
           </FormCard>
 
-          <FormCard title="Кастомная цена за документ">
-            <p className="text-sm text-gray-500">
-              Переопределяет объёмные уровни для этой компании. Текущее значение:{' '}
-              <b className="font-semibold text-slate-800">
-                {customPrice === null ? 'не задано' : formatSum(customPrice)}
-              </b>
-            </p>
-            <div className="mt-4 flex flex-wrap items-end gap-3">
-              <div className="w-56">
-                <Input
-                  label="Цена за документ, сум"
-                  inputMode="numeric"
-                  value={priceDraft}
-                  onChange={(e) => setPriceDraft(e.target.value)}
-                  placeholder="например, 280"
-                />
-              </div>
-              <Button
-                size="md"
-                disabled={!Number.isFinite(Number(priceDraft)) || Number(priceDraft) <= 0}
-                onClick={() => setPending({ kind: 'customPrice', value: Number(priceDraft) })}
-              >
-                Установить
-              </Button>
-              <Button
-                hierarchy="secondary-gray"
-                size="md"
-                disabled={customPrice === null}
-                onClick={() => setPending({ kind: 'customPrice', value: null })}
-              >
-                Снять переопределение
-              </Button>
-            </div>
-          </FormCard>
-        </div>
+       </div>
       )}
 
       {tab === 'documents' && (
@@ -692,16 +646,12 @@ export default function TenantDetailPage() {
               : 'Активировать компанию'
             : pending?.kind === 'resolution'
               ? pending.label
-              : 'Изменение кастомной цены'
+              : 'Подтверждение действия'
         }
         description={
           pending?.kind === 'resolution'
             ? pending.description
-            : pending?.kind === 'customPrice'
-              ? pending.value === null
-                ? 'Компания вернётся к стандартным объёмным уровням цен.'
-                : `Новая цена за документ: ${formatSum(pending.value)}.`
-              : `Компания: ${company.name} (ИНН ${formatInn(company.inn)}).`
+            : `Компания: ${company.name} (ИНН ${formatInn(company.inn)}).`
         }
       />
 

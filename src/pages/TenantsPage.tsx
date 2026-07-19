@@ -81,7 +81,6 @@ export default function TenantsPage() {
   const [billingMode, setBillingMode] = useState(ANY)
   const [plan, setPlan] = useState(ANY)
   const [region, setRegion] = useState(ANY)
-  const [customPrice, setCustomPrice] = useState(ANY)
   const [statusFilter, setStatusFilter] = useState(ANY)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
@@ -132,8 +131,6 @@ export default function TenantsPage() {
         if (plan === 'none' ? c.planName !== null : c.planName !== plan) return false
       }
       if (region !== ANY && c.region !== region) return false
-      if (customPrice === 'yes' && c.customPricePerDoc === null) return false
-      if (customPrice === 'no' && c.customPricePerDoc !== null) return false
       if (!q) return true
       return (
         c.inn.includes(q) ||
@@ -144,7 +141,7 @@ export default function TenantsPage() {
         c.email.toLowerCase().includes(q)
       )
     })
-  }, [rows, search, tab, statusFilter, billingMode, plan, region, customPrice])
+  }, [rows, search, tab, statusFilter, billingMode, plan, region])
 
   const counts = useMemo(() => {
     const by = (s: TenantStatus) => rows.filter((c) => c.status === s).length
@@ -349,7 +346,7 @@ export default function TenantsPage() {
         </div>
 
         {showFilters && (
-          <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <Select
               label="Статус"
               value={statusFilter}
@@ -378,16 +375,6 @@ export default function TenantsPage() {
               value={region}
               onChange={resetPage(setRegion)}
               options={regionOptions}
-            />
-            <Select
-              label="Кастомная цена"
-              value={customPrice}
-              onChange={resetPage(setCustomPrice)}
-              options={[
-                { value: ANY, label: 'Не важно' },
-                { value: 'yes', label: 'Есть' },
-                { value: 'no', label: 'Нет' },
-              ]}
             />
           </div>
         )}
