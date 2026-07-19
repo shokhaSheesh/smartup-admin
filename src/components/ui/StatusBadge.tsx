@@ -6,6 +6,7 @@ import type {
   ChargeType,
   DocStatus,
   UserStatus,
+  UserKind,
   PaymentStatus,
   AuditResult,
 } from '@/types/admin'
@@ -16,6 +17,7 @@ import {
   chargeTypeLabel,
   docStatusLabel,
   userStatusLabel,
+  userKindLabel,
   paymentStatusLabel,
   auditResultLabel,
 } from '@/types/labels'
@@ -60,6 +62,11 @@ const userStyles: Record<UserStatus, string> = {
   blocked: 'bg-red-100 text-red-600',
 }
 
+const userKindStyles: Record<UserKind, string> = {
+  individual: 'bg-purple-50 text-purple-600',
+  employee: 'bg-blue-50 text-Smart-blue',
+}
+
 const paymentStyles: Record<PaymentStatus, string> = {
   pending: 'bg-amber-50 text-amber-500',
   success: 'bg-green-100 text-emerald-600',
@@ -98,6 +105,14 @@ export function DocStatusBadge({ status }: { status: DocStatus }) {
 
 export function UserStatusBadge({ status }: { status: UserStatus }) {
   return <span className={cn(base, userStyles[status])}>{userStatusLabel[status]}</span>
+}
+
+export function UserKindBadge({ kind }: { kind: UserKind }) {
+  return (
+    <span className={cn(base, 'whitespace-nowrap', userKindStyles[kind])}>
+      {userKindLabel[kind]}
+    </span>
+  )
 }
 
 export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {

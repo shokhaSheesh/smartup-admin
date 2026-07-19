@@ -1,23 +1,43 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Lock, LockOpen } from 'lucide-react'
+import { Building2, Lock, LockOpen, User, Users } from 'lucide-react'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { Pagination, paginate, PAGE_SIZES } from '@/components/ui/Pagination'
 import { Select } from '@/components/ui/Select'
-import { UserStatusBadge } from '@/components/ui/StatusBadge'
+import { Tabs } from '@/components/ui/Tabs'
+import { StatCard } from '@/components/ui/StatCard'
+import { UserKindBadge, UserStatusBadge } from '@/components/ui/StatusBadge'
 import { RowMenu } from '@/components/ui/RowMenu'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { companies, tenantUsers } from '@/data/mock'
-import type { TenantUser, TenantUserRole, UserStatus } from '@/types/admin'
-import { tenantUserRoleLabel, userStatusLabel } from '@/types/labels'
+import { companies, platformUsers } from '@/data/mock'
+import type {
+  AuthMethod,
+  PlatformUser,
+  TenantUserRole,
+  UserStatus,
+} from '@/types/admin'
+import {
+  authMethodLabel,
+  tenantUserRoleLabel,
+  userKindLabel,
+  userStatusLabel,
+} from '@/types/labels'
 import { formatDateTime, formatInn, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
+const ALL = 'all'
+
+const kindTabs = [
+  { key: ALL, label: 'Все' },
+  { key: 'individual', label: 'Физические лица' },
+  { key: 'employee', label: 'Сотрудники компаний' },
+]
+
 const ROLE_OPTIONS = [
-  { value: 'all', label: 'Все роли' },
+  { value: ALL, label: 'Все роли' },
   ...(Object.keys(tenantUserRoleLabel) as TenantUserRole[]).map((r) => ({
     value: r,
     label: tenantUserRoleLabel[r],
@@ -25,15 +45,23 @@ const ROLE_OPTIONS = [
 ]
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'Все статусы' },
+  { value: ALL, label: 'Все статусы' },
   ...(Object.keys(userStatusLabel) as UserStatus[]).map((s) => ({
     value: s,
     label: userStatusLabel[s],
   })),
 ]
 
+const AUTH_OPTIONS = [
+  { value: ALL, label: 'Любой способ' },
+  ...(Object.keys(authMethodLabel) as AuthMethod[]).map((a) => ({
+    value: a,
+    label: authMethodLabel[a],
+  })),
+]
+
 const COMPANY_OPTIONS = [
-  { value: 'all', label: 'Все компании' },
+  { value: ALL, label: 'Все компании' },
   ...companies.map((c) => ({ value: c.id, label: `${formatInn(c.inn)} · ${c.name}` })),
 ]
 
@@ -42,39 +70,62 @@ export default function UsersPage() {
 
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [role, setRole] = useState('all')
-  const [status, setStatus] = useState('all')
-  const [companyId, setCompanyId] = useState('all')
+  const [kind, setKind] = useState<string>(ALL)
+  const [role, setRole] = useState(ALL)
+  const [status, setStatus] = useState(ALL)
+  const [companyId, setCompanyId] = useState(ALL)
+  const [authMethod, setAuthMethod] = useState(ALL)
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
 
   /** Local override map — blocking is not persisted anywhere in the mock data. */
   const [overrides, setOverrides] = useState<Record<string, UserStatus>>({})
-  const [target, setTarget] = useState<TenantUser | null>(null)
+  const [target, setTarget] = useState<PlatformUser | null>(null)
 
-  const statusOf = (u: TenantUser): UserStatus => overrides[u.id] ?? u.status
+  const statusOf = (u: PlatformUser): UserStatus => overrides[u.id] ?? u.status
 
-  const filtersActive = role !== 'all' || status !== 'all' || companyId !== 'all'
+  /** Role and company only apply to employees. */
+  const employeeOnlyFilters = kind !== 'individual'
+
+  const filtersActive =
+    role !== ALL || status !== ALL || companyId !== ALL || authMethod !== ALL
+
+  const counts = useMemo(
+    () => ({
+      [ALL]: platformUsers.length,
+      individual: platformUsers.filter((u) => u.kind === 'individual').length,
+      employee: platformUsers.filter((u) => u.kind === 'employee').length,
+    }),
+    [],
+  )
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return tenantUsers.filter((u) => {
-      if (role !== 'all' && u.role !== role) return false
-      if (status !== 'all' && (overrides[u.id] ?? u.status) !== status) return false
-      if (companyId !== 'all' && u.companyId !== companyId) return false
+    return platformUsers.filter((u) => {
+      if (kind !== ALL && u.kind !== kind) return false
+      if (role !== ALL && u.role !== role) return false
+      if (status !== ALL && (overrides[u.id] ?? u.status) !== status) return false
+      if (companyId !== ALL && u.companyId !== companyId) return false
+      if (authMethod !== ALL && u.authMethod !== authMethod) return false
       if (!q) return true
       return (
         u.fullName.toLowerCase().includes(q) ||
         u.pinfl.includes(q) ||
-        u.companyName.toLowerCase().includes(q) ||
-        u.companyInn.includes(q) ||
-        u.email.toLowerCase().includes(q)
+        (u.companyName?.toLowerCase().includes(q) ?? false) ||
+        (u.companyInn?.includes(q) ?? false)
       )
     })
-  }, [search, role, status, companyId, overrides])
+  }, [search, kind, role, status, companyId, authMethod, overrides])
 
   const rows = paginate(filtered, page, pageSize)
+
+  function resetPage<T>(setter: (v: T) => void) {
+    return (v: T) => {
+      setter(v)
+      setPage(1)
+    }
+  }
 
   function toggleBlock(reason: string) {
     if (!target) return
@@ -85,48 +136,55 @@ export default function UsersPage() {
     setTarget(null)
   }
 
-  const columns: Column<TenantUser>[] = [
+  const columns: Column<PlatformUser>[] = [
     {
       key: 'fullName',
       header: 'ФИО',
       cell: (u) => (
         <div className="flex flex-col">
           <span className="text-sm font-medium text-slate-800">{u.fullName}</span>
-          <span className="text-xs text-gray-500">
-            {u.eimzoBound ? 'E-IMZO привязан' : 'Без E-IMZO'}
-          </span>
+          <span className="text-xs text-gray-500">ПИНФЛ {u.pinfl}</span>
         </div>
       ),
     },
     {
-      key: 'pinfl',
-      header: 'ПИНФЛ',
-      cell: (u) => <span className="text-sm whitespace-nowrap text-gray-900">{u.pinfl}</span>,
+      key: 'kind',
+      header: 'Тип',
+      cell: (u) => <UserKindBadge kind={u.kind} />,
     },
     {
       key: 'company',
       header: 'Компания',
-      cell: (u) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-medium text-slate-800">{u.companyName}</span>
-          <span className="text-xs text-gray-500">ИНН {formatInn(u.companyInn)}</span>
-        </div>
-      ),
+      cell: (u) =>
+        u.companyId ? (
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-slate-800">{u.companyName}</span>
+            <span className="text-xs text-gray-500">ИНН {formatInn(u.companyInn!)}</span>
+          </div>
+        ) : (
+          <span className="text-sm text-gray-400">Без компании</span>
+        ),
     },
     {
       key: 'role',
       header: 'Роль',
+      cell: (u) =>
+        u.role ? (
+          <span className="text-sm whitespace-nowrap text-gray-900">
+            {tenantUserRoleLabel[u.role]}
+          </span>
+        ) : (
+          <span className="text-sm text-gray-400">—</span>
+        ),
+    },
+    {
+      key: 'auth',
+      header: 'Способ входа',
       cell: (u) => (
-        <span className="text-sm whitespace-nowrap text-gray-900">
-          {tenantUserRoleLabel[u.role]}
+        <span className="text-sm whitespace-nowrap text-slate-600">
+          {authMethodLabel[u.authMethod]}
         </span>
       ),
-    },
-    { key: 'email', header: 'Email', cell: (u) => <span className="text-sm text-gray-900">{u.email}</span> },
-    {
-      key: 'phone',
-      header: 'Телефон',
-      cell: (u) => <span className="text-sm whitespace-nowrap text-gray-900">{u.phone}</span>,
     },
     { key: 'status', header: 'Статус', cell: (u) => <UserStatusBadge status={statusOf(u)} /> },
     {
@@ -146,10 +204,12 @@ export default function UsersPage() {
         <div onClick={(e) => e.stopPropagation()}>
           <RowMenu
             items={[
+              // Individuals belong to no company, so there is nothing to open.
               {
                 label: 'Открыть компанию',
                 icon: <Building2 className="size-4" />,
-                onClick: () => navigate(`/tenants/${u.companyId}`),
+                disabled: u.companyId === null,
+                onClick: () => u.companyId && navigate(`/tenants/${u.companyId}`),
               },
               statusOf(u) === 'blocked'
                 ? {
@@ -174,64 +234,88 @@ export default function UsersPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Пользователи"
-        subtitle={`Сквозной поиск сотрудников по всем компаниям — ${formatNumber(tenantUsers.length)} учётных записей`}
-      />
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <StatCard
+          value={formatNumber(counts[ALL])}
+          label="Всего пользователей"
+          icon={Users}
+          iconBg="bg-blue-50"
+          iconColor="text-Smart-blue"
+        />
+        <StatCard
+          value={formatNumber(counts.individual)}
+          label="Физические лица"
+          icon={User}
+          iconBg="bg-purple-50"
+          iconColor="text-purple-600"
+        />
+        <StatCard
+          value={formatNumber(counts.employee)}
+          label="Сотрудники компаний"
+          icon={Building2}
+          iconBg="bg-green-100"
+          iconColor="text-emerald-600"
+        />
+      </div>
 
       <PageCard>
-        <Toolbar
-          search={search}
-          onSearchChange={(v) => {
-            setSearch(v)
-            setPage(1)
-          }}
-          placeholder="Поиск по ФИО, ПИНФЛ, компании или email"
-          filtersActive={showFilters || filtersActive}
-          onToggleFilters={() => setShowFilters((v) => !v)}
-        />
+        <PageHeader title="Пользователи" />
+
+        <div className="mt-4">
+          <Toolbar
+            search={search}
+            onSearchChange={resetPage(setSearch)}
+            placeholder="Поиск по ФИО, ПИНФЛ, компании или ИНН"
+            filtersActive={showFilters || filtersActive}
+            onToggleFilters={() => setShowFilters((v) => !v)}
+          />
+        </div>
 
         {showFilters && (
-          <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <Select
-              label="Роль"
-              options={ROLE_OPTIONS}
-              value={role}
-              onChange={(v) => {
-                setRole(v)
-                setPage(1)
-              }}
+              label="Способ входа"
+              options={AUTH_OPTIONS}
+              value={authMethod}
+              onChange={resetPage(setAuthMethod)}
             />
             <Select
               label="Статус"
               options={STATUS_OPTIONS}
               value={status}
-              onChange={(v) => {
-                setStatus(v)
-                setPage(1)
-              }}
+              onChange={resetPage(setStatus)}
             />
-            <Select
-              label="Компания"
-              options={COMPANY_OPTIONS}
-              value={companyId}
-              onChange={(v) => {
-                setCompanyId(v)
-                setPage(1)
-              }}
-            />
-            <div className="sm:col-span-3">
+            {employeeOnlyFilters && (
+              <>
+                <Select
+                  label="Роль в компании"
+                  options={ROLE_OPTIONS}
+                  value={role}
+                  onChange={resetPage(setRole)}
+                />
+                <Select
+                  label="Компания"
+                  options={COMPANY_OPTIONS}
+                  value={companyId}
+                  onChange={resetPage(setCompanyId)}
+                />
+              </>
+            )}
+            <div className="lg:col-span-4">
               <button
                 type="button"
                 onClick={() => {
-                  setRole('all')
-                  setStatus('all')
-                  setCompanyId('all')
+                  setRole(ALL)
+                  setStatus(ALL)
+                  setCompanyId(ALL)
+                  setAuthMethod(ALL)
                   setPage(1)
                 }}
                 className={cn(
                   'text-sm font-semibold transition',
-                  filtersActive ? 'text-Smart-blue hover:underline' : 'cursor-not-allowed text-gray-400',
+                  filtersActive
+                    ? 'text-Smart-blue hover:underline'
+                    : 'cursor-not-allowed text-gray-400',
                 )}
                 disabled={!filtersActive}
               >
@@ -241,8 +325,25 @@ export default function UsersPage() {
           </div>
         )}
 
+        <Tabs
+          tabs={kindTabs}
+          active={kind}
+          onChange={(k) => {
+            setKind(k)
+            // Company-scoped filters make no sense for individuals.
+            if (k === 'individual') {
+              setRole(ALL)
+              setCompanyId(ALL)
+            }
+            setPage(1)
+          }}
+        />
+
         <DataTable
-          columns={columns}
+          columns={columns.filter(
+            // Individuals have no company or role — hide those columns entirely.
+            (c) => !(kind === 'individual' && (c.key === 'company' || c.key === 'role')),
+          )}
           rows={rows}
           rowKey={(u) => u.id}
           emptyMessage="Пользователи не найдены"
@@ -261,18 +362,22 @@ export default function UsersPage() {
         open={target !== null}
         onClose={() => setTarget(null)}
         onConfirm={toggleBlock}
-        title={blocking ? 'Заблокировать пользователя' : 'Разблокировать пользователя'}
-        confirmLabel={blocking ? 'Заблокировать' : 'Разблокировать'}
         destructive={blocking}
+        confirmLabel={blocking ? 'Заблокировать' : 'Разблокировать'}
+        title={blocking ? 'Заблокировать пользователя' : 'Разблокировать пользователя'}
         description={
           target && (
-            <span>
+            <>
               {blocking
-                ? 'Пользователь потеряет доступ к кабинету компании'
-                : 'Пользователю будет возвращён доступ к кабинету компании'}{' '}
-              <b className="font-semibold text-slate-800">{target.fullName}</b> ({target.companyName},
-              ИНН {formatInn(target.companyInn)}).
-            </span>
+                ? 'Пользователь потеряет доступ к платформе: '
+                : 'Пользователь снова получит доступ к платформе: '}
+              <b className="font-semibold text-slate-800">{target.fullName}</b>
+              {target.companyName ? (
+                <> ({target.companyName}).</>
+              ) : (
+                <> ({userKindLabel[target.kind].toLowerCase()}).</>
+              )}
+            </>
           )
         }
       />

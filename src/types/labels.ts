@@ -1,4 +1,5 @@
 import type {
+  AuthMethod,
   TenantStatus,
   BillingMode,
   SubscriptionStatus,
@@ -7,6 +8,7 @@ import type {
   DocDirection,
   UserStatus,
   TenantUserRole,
+  UserKind,
   AdminRole,
   TxType,
   PaymentMethod,
@@ -56,6 +58,17 @@ export const docDirectionLabel: Record<DocDirection, string> = {
 export const userStatusLabel: Record<UserStatus, string> = {
   active: 'Активен',
   blocked: 'Заблокирован',
+}
+
+export const userKindLabel: Record<UserKind, string> = {
+  individual: 'Физическое лицо',
+  employee: 'Сотрудник компании',
+}
+
+export const authMethodLabel: Record<AuthMethod, string> = {
+  personal_eimzo: 'Личный ключ E-IMZO',
+  company_eimzo: 'Ключ E-IMZO компании',
+  login_password: 'ИНН и пароль',
 }
 
 export const tenantUserRoleLabel: Record<TenantUserRole, string> = {

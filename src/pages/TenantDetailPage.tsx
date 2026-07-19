@@ -22,7 +22,7 @@ import type {
   AdminDocument,
   DocStatus,
   TenantStatus,
-  TenantUser,
+  PlatformUser,
 } from '@/types/admin'
 import { DOC_TYPES, docTypeLabel } from '@/types/admin'
 import {
@@ -35,6 +35,7 @@ import {
   usersByCompany,
 } from '@/data/mock'
 import {
+  authMethodLabel,
   docStatusLabel,
   paymentMethodLabel,
   tenantUserRoleLabel,
@@ -205,7 +206,7 @@ export default function TenantDetailPage() {
       at: u.lastLoginAt,
       kind: 'employee_added',
       title: 'Добавлен сотрудник',
-      detail: `${u.fullName} · ${tenantUserRoleLabel[u.role]}`,
+      detail: `${u.fullName}${u.role ? ` · ${tenantUserRoleLabel[u.role]}` : ''}`,
       amount: null,
     }))
 
@@ -264,9 +265,16 @@ export default function TenantDetailPage() {
     setPending(null)
   }
 
-  const userColumns: Column<TenantUser>[] = [
+  const userColumns: Column<PlatformUser>[] = [
     { key: 'name', header: 'ФИО', cell: (u) => <span className="font-medium text-slate-800">{u.fullName}</span> },
-    { key: 'role', header: 'Роль', cell: (u) => tenantUserRoleLabel[u.role] },
+    { key: 'role', header: 'Роль', cell: (u) => (u.role ? tenantUserRoleLabel[u.role] : '—') },
+    {
+      key: 'auth',
+      header: 'Способ входа',
+      cell: (u) => (
+        <span className="whitespace-nowrap text-slate-600">{authMethodLabel[u.authMethod]}</span>
+      ),
+    },
     { key: 'status', header: 'Статус', cell: (u) => <UserStatusBadge status={u.status} /> },
     {
       key: 'login',

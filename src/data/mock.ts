@@ -21,8 +21,9 @@ import type {
   Subscription,
   SubscriptionStatus,
   TenantStatus,
-  TenantUser,
+  PlatformUser,
   TenantUserRole,
+  AuthMethod,
   Transaction,
   TxType,
 } from '@/types/admin'
@@ -358,26 +359,52 @@ const ROLE_WEIGHTS: TenantUserRole[] = [
   'accountant', 'operator', 'operator', 'operator', 'accountant',
 ]
 
-export const tenantUsers: TenantUser[] = companies.flatMap((c, ci) => {
+/** Employees act for a company: company E-IMZO key, or ИНН + password from the owner. */
+const employees: PlatformUser[] = companies.flatMap((c, ci) => {
   const count = Math.min(c.employees, int(1, 5))
   return Array.from({ length: count }, (_, ui) => {
     const role: TenantUserRole = ui === 0 ? 'director' : pick(ROLE_WEIGHTS)
     return {
       id: `usr-${ci + 1}-${ui + 1}`,
+      kind: 'employee' as const,
+      pinfl: ui === 0 ? c.directorPinfl : pinfl(),
+      fullName: ui === 0 ? c.directorName : fullName(),
       companyId: c.id,
       companyInn: c.inn,
       companyName: c.name,
-      pinfl: ui === 0 ? c.directorPinfl : pinfl(),
-      fullName: ui === 0 ? c.directorName : fullName(),
       role,
-      email: `user${ui + 1}@${c.website.replace('https://', '')}`,
-      phone: phone(),
+      // The director normally holds the company key; staff get login credentials.
+      authMethod: (role === 'director'
+        ? chance(0.85)
+          ? 'company_eimzo'
+          : 'login_password'
+        : chance(0.25)
+          ? 'company_eimzo'
+          : 'login_password') as AuthMethod,
       status: c.status === 'suspended' ? 'blocked' : chance(0.07) ? 'blocked' : 'active',
-      eimzoBound: role === 'director' ? chance(0.95) : chance(0.5),
       lastLoginAt: daysAgo(int(0, 90)),
+      registeredAt: c.createdAt,
     }
   })
 })
+
+/** Individuals registered with their own personal E-IMZO key — no company. */
+const individuals: PlatformUser[] = Array.from({ length: 38 }, (_, i) => ({
+  id: `ind-${i + 1}`,
+  kind: 'individual' as const,
+  pinfl: pinfl(),
+  fullName: fullName(),
+  companyId: null,
+  companyInn: null,
+  companyName: null,
+  role: null,
+  authMethod: 'personal_eimzo' as AuthMethod,
+  status: chance(0.06) ? 'blocked' : 'active',
+  lastLoginAt: daysAgo(int(0, 120)),
+  registeredAt: daysAgo(int(10, 380)),
+}))
+
+export const platformUsers: PlatformUser[] = [...employees, ...individuals]
 
 /* ---------------------------------------------------------------- documents */
 
@@ -716,7 +743,7 @@ export const subscriptionByCompany = (companyId: string) =>
 export const balanceByCompany = (companyId: string) =>
   balances.find((b) => b.companyId === companyId)
 export const usersByCompany = (companyId: string) =>
-  tenantUsers.filter((u) => u.companyId === companyId)
+  platformUsers.filter((u) => u.companyId === companyId)
 export const documentsByCompany = (companyId: string) =>
   documents.filter((d) => d.companyId === companyId)
 export const transactionsByCompany = (companyId: string) =>

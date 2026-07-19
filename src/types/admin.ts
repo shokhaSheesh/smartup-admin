@@ -121,19 +121,33 @@ export type Company = {
   source: string
 }
 
-export type TenantUser = {
+/**
+ * Two kinds of account exist on the platform:
+ *
+ * - `individual` — a физическое лицо who registered with their own personal
+ *   E-IMZO key. Belongs to no company and has no company role.
+ * - `employee` — acts on behalf of a company. Either signs in with the
+ *   company's E-IMZO key, or with ИНН + password issued by the company owner.
+ */
+export type UserKind = 'individual' | 'employee'
+
+export type AuthMethod = 'personal_eimzo' | 'company_eimzo' | 'login_password'
+
+export type PlatformUser = {
   id: string
-  companyId: string
-  companyInn: string
-  companyName: string
+  kind: UserKind
   pinfl: string
   fullName: string
-  role: TenantUserRole
-  email: string
-  phone: string
+  /** Company link — null for individuals. */
+  companyId: string | null
+  companyInn: string | null
+  companyName: string | null
+  /** Company role — null for individuals. */
+  role: TenantUserRole | null
+  authMethod: AuthMethod
   status: UserStatus
-  eimzoBound: boolean
   lastLoginAt: string
+  registeredAt: string
 }
 
 export type Plan = {
