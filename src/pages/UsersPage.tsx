@@ -21,13 +21,11 @@ import {
   withEdits,
 } from '@/data/userEdits'
 import type {
-  AuthMethod,
   PlatformUser,
   TenantUserRole,
   UserStatus,
 } from '@/types/admin'
 import {
-  authMethodLabel,
   tenantUserRoleLabel,
   userKindLabel,
   userStatusLabel,
@@ -58,13 +56,6 @@ const STATUS_OPTIONS = [
   })),
 ]
 
-const AUTH_OPTIONS = [
-  { value: ALL, label: 'Любой способ' },
-  ...(Object.keys(authMethodLabel) as AuthMethod[]).map((a) => ({
-    value: a,
-    label: authMethodLabel[a],
-  })),
-]
 
 const COMPANY_OPTIONS = [
   { value: ALL, label: 'Все компании' },
@@ -80,7 +71,6 @@ export default function UsersPage() {
   const [role, setRole] = useState(ALL)
   const [status, setStatus] = useState(ALL)
   const [companyId, setCompanyId] = useState(ALL)
-  const [authMethod, setAuthMethod] = useState(ALL)
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
@@ -100,7 +90,7 @@ export default function UsersPage() {
   const showingIndividuals = kind === 'individual'
 
   const filtersActive =
-    role !== ALL || status !== ALL || companyId !== ALL || authMethod !== ALL
+    role !== ALL || status !== ALL || companyId !== ALL
 
   const counts = useMemo(
     () => ({
@@ -118,7 +108,6 @@ export default function UsersPage() {
       if (role !== ALL && u.role !== role) return false
       if (status !== ALL && u.status !== status) return false
       if (companyId !== ALL && u.companyId !== companyId) return false
-      if (authMethod !== ALL && u.authMethod !== authMethod) return false
       if (!q) return true
       return (
         u.fullName.toLowerCase().includes(q) ||
@@ -127,7 +116,7 @@ export default function UsersPage() {
         (u.companyInn?.includes(q) ?? false)
       )
     })
-  }, [allUsers, search, kind, role, status, companyId, authMethod])
+  }, [allUsers, search, kind, role, status, companyId])
 
   const rows = paginate(filtered, page, pageSize)
 
@@ -153,7 +142,9 @@ export default function UsersPage() {
       cell: (u) => (
         <div className="flex flex-col">
           <span className="text-sm font-medium text-slate-800">{u.fullName}</span>
-          <span className="text-xs text-gray-500">ПИНФЛ {u.pinfl}</span>
+          {u.kind === 'individual' && (
+            <span className="text-xs text-gray-500">ПИНФЛ {u.pinfl}</span>
+          )}
         </div>
       ),
     },
@@ -216,15 +207,6 @@ export default function UsersPage() {
           )}
         >
           {u.balance === null ? '—' : formatMoney(u.balance)}
-        </span>
-      ),
-    },
-    {
-      key: 'auth',
-      header: 'Способ входа',
-      cell: (u) => (
-        <span className="text-sm whitespace-nowrap text-slate-600">
-          {authMethodLabel[u.authMethod]}
         </span>
       ),
     },
@@ -334,12 +316,6 @@ export default function UsersPage() {
             {!showingIndividuals && (
               <>
                 <Select
-                  label="Способ входа"
-                  options={AUTH_OPTIONS}
-                  value={authMethod}
-                  onChange={resetPage(setAuthMethod)}
-                />
-                <Select
                   label="Роль в компании"
                   options={ROLE_OPTIONS}
                   value={role}
@@ -360,8 +336,7 @@ export default function UsersPage() {
                   setRole(ALL)
                   setStatus(ALL)
                   setCompanyId(ALL)
-                  setAuthMethod(ALL)
-                  setPage(1)
+                      setPage(1)
                 }}
                 className={cn(
                   'text-sm font-semibold transition',
@@ -386,7 +361,6 @@ export default function UsersPage() {
             if (k === 'individual') {
               setRole(ALL)
               setCompanyId(ALL)
-              setAuthMethod(ALL)
             }
             setPage(1)
           }}
@@ -397,7 +371,7 @@ export default function UsersPage() {
             showingIndividuals
               // Individuals have no company or role, and their sign-in method is
               // always a personal E-IMZO key — so neither column carries meaning.
-              ? !['company', 'role', 'auth'].includes(c.key)
+              ? !['company', 'role'].includes(c.key)
               : !['phone', 'address', 'balance', 'docs'].includes(c.key),
           )}
           rows={rows}

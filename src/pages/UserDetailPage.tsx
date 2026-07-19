@@ -9,7 +9,6 @@ import {
   FileText,
   FileX,
   Info,
-  KeyRound,
   Send,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -23,7 +22,6 @@ import {
   withEdits,
 } from '@/data/userEdits'
 import {
-  authMethodLabel,
   tenantUserRoleLabel,
   userKindLabel,
 } from '@/types/labels'
@@ -200,11 +198,13 @@ export default function UserDetailPage() {
     { key: 'charge', header: 'Списание', cell: (d) => <ChargeTypeBadge type={d.chargeType} /> },
   ]
 
-  const tabs = [
-    { key: 'overview', label: 'Обзор' },
-    { key: 'documents', label: 'Документы', count: docs.length },
-    { key: 'activity', label: 'Активность', count: feed.length },
-  ]
+  const tabs = isIndividual
+    ? [
+        { key: 'overview', label: 'Обзор' },
+        { key: 'documents', label: 'Документы', count: docs.length },
+        { key: 'activity', label: 'Активность', count: feed.length },
+      ]
+    : [{ key: 'overview', label: 'Обзор' }]
 
   return (
     <div className="flex flex-col gap-4">
@@ -220,7 +220,11 @@ export default function UserDetailPage() {
       <PageCard>
         <PageHeader
           title={user.fullName}
-          subtitle={`${userKindLabel[user.kind]} · ПИНФЛ ${user.pinfl}`}
+          subtitle={
+            isIndividual
+              ? `${userKindLabel[user.kind]} · ПИНФЛ ${user.pinfl}`
+              : `${userKindLabel[user.kind]} · ${user.companyName ?? ''}`
+          }
           actions={
             <>
               <UserStatusBadge status={user.status} />
@@ -256,9 +260,9 @@ export default function UserDetailPage() {
           <FormCard title="Личные данные">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="ФИО">{user.fullName}</Field>
-              <Field label="ПИНФЛ">{user.pinfl}</Field>
+              {isIndividual && <Field label="ПИНФЛ">{user.pinfl}</Field>}
               <Field label="Телефон">{user.phone}</Field>
-              <Field label="Адрес">{user.address ?? '—'}</Field>
+              {isIndividual && <Field label="Адрес">{user.address ?? '—'}</Field>}
               {!isIndividual && (
                 <>
                   <Field label="Компания">
@@ -284,12 +288,6 @@ export default function UserDetailPage() {
 
           <FormCard title="Учётная запись">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Способ входа">
-                <span className="inline-flex items-center gap-2">
-                  <KeyRound className="size-4 text-gray-400" />
-                  {authMethodLabel[user.authMethod]}
-                </span>
-              </Field>
               <Field label="Статус">
                 <UserStatusBadge status={user.status} />
               </Field>
@@ -298,7 +296,7 @@ export default function UserDetailPage() {
             </div>
           </FormCard>
 
-          {user.balance !== null ? (
+          {user.balance !== null && (
             <FormCard title="Баланс">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
@@ -349,13 +347,6 @@ export default function UserDetailPage() {
                   </ol>
                 </div>
               )}
-            </FormCard>
-          ) : (
-            <FormCard title="Баланс">
-              <p className="text-sm text-gray-500">
-                У сотрудника нет собственного баланса — документы оплачиваются со счёта
-                компании.
-              </p>
             </FormCard>
           )}
         </div>
