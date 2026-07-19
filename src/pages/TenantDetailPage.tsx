@@ -29,7 +29,6 @@ import {
   balanceByCompany,
   companyById,
   userById,
-  userNameById,
   documentsByCompany,
   paymentsByCompany,
   subscriptionByCompany,
@@ -79,22 +78,27 @@ import { cn } from '@/lib/cn'
 /** Sentinel for "no filter selected". */
 const ALL = 'all'
 
-/** Appends "· ФИО" when the acting employee is known. */
-function withActor(text: string, userId: string | null): string {
-  const name = userNameById(userId)
-  return name ? `${text} · ${name}` : text
+/**
+ * Names the actor only when they belong to this company. On an outgoing
+ * document the signer works for the counterparty, and naming them here would
+ * attribute a stranger's action to this company's activity.
+ */
+function withActor(text: string, userId: string | null, companyId: string): string {
+  const actor = userId ? userById(userId) : undefined
+  if (!actor) return text
+  return actor.companyId === companyId
+    ? `${text} · ${actor.fullName}`
+    : `${text} · контрагентом`
 }
 
-/**
- * Actor name, linking to their own profile. The actor is not always an employee
- * of the company being viewed — on an incoming document the sender works for the
- * counterparty — so the link follows the actor's own company, not this page's.
- */
+/** The employee who acted, with what they did, linking to their profile. */
 function ActorCell({
   userId,
+  action,
   navigate,
 }: {
   userId: string | null
+  action: string
   navigate: (to: string) => void
 }) {
   const actor = userId ? userById(userId) : undefined
@@ -116,9 +120,7 @@ function ActorCell({
       <span className="whitespace-nowrap font-medium text-Smart-blue hover:underline">
         {actor.fullName}
       </span>
-      {actor.companyName && (
-        <span className="text-xs text-gray-500">{actor.companyName}</span>
-      )}
+      <span className="text-xs text-gray-500">{action}</span>
     </button>
   )
 }
@@ -197,7 +199,11 @@ export default function TenantDetailPage() {
           at: d.sentAt,
           kind: 'doc_sent',
           title: 'Документ отправлен',
-          detail: withActor(`${d.number} · ${docTypeLabel(d.type, d.subtype)}`, d.sentBy),
+          detail: withActor(
+            `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
+            d.sentBy,
+            company.id,
+          ),
           amount: null,
         })
       }
@@ -207,7 +213,11 @@ export default function TenantDetailPage() {
           at: d.sentAt ?? d.createdAt,
           kind: 'doc_signed',
           title: 'Документ подписан',
-          detail: withActor(`${d.number} · ${docTypeLabel(d.type, d.subtype)}`, d.resolvedBy),
+          detail: withActor(
+            `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
+            d.resolvedBy,
+            company.id,
+          ),
           amount: null,
         })
       }
@@ -217,7 +227,11 @@ export default function TenantDetailPage() {
           at: d.sentAt ?? d.createdAt,
           kind: 'doc_rejected',
           title: 'Документ отклонён',
-          detail: withActor(`${d.number} · ${docTypeLabel(d.type, d.subtype)}`, d.resolvedBy),
+          detail: withActor(
+            `${d.number} · ${docTypeLabel(d.type, d.subtype)}`,
+            d.resolvedBy,
+            company.id,
+          ),
           amount: null,
         })
       }
@@ -231,7 +245,7 @@ export default function TenantDetailPage() {
         at: p.createdAt,
         kind: 'topup',
         title: 'Пополнение баланса',
-        detail: withActor(paymentMethodLabel[p.method], p.actorUserId),
+        detail: withActor(paymentMethodLabel[p.method], p.actorUserId, company.id),
         amount: p.amount,
       }))
 
@@ -364,15 +378,17 @@ export default function TenantDetailPage() {
     { key: 'status', header: 'Статус', cell: (d) => <DocStatusBadge status={d.status} /> },
     {
       key: 'actor',
-      header: 'Кто отправил',
-      cell: (d) => <ActorCell userId={d.sentBy} navigate={navigate} />,
-    },
-    {
-      key: 'resolver',
-      header: 'Кто обработал',
+      header: 'Сотрудник',
+      // Only this company's side is of interest: it sent the outgoing ones and
+      // signed or rejected the incoming ones. The counterparty's staff are not
+      // our concern here.
       cell: (d) =>
-        d.status === 'signed' || d.status === 'rejected' ? (
-          <ActorCell userId={d.resolvedBy} navigate={navigate} />
+        d.direction === 'outgoing' ? (
+          <ActorCell userId={d.sentBy} action="Отправил" navigate={navigate} />
+        ) : d.status === 'signed' ? (
+          <ActorCell userId={d.resolvedBy} action="Подписал" navigate={navigate} />
+        ) : d.status === 'rejected' ? (
+          <ActorCell userId={d.resolvedBy} action="Отклонил" navigate={navigate} />
         ) : (
           <span className="text-gray-400">—</span>
         ),
