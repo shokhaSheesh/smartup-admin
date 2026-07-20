@@ -3,7 +3,6 @@ import {
   CalendarPlus,
   Repeat,
   RefreshCw,
-  RotateCcw,
   XCircle,
   Wallet,
   AlertTriangle,
@@ -108,7 +107,6 @@ export default function SubscriptionsPage() {
   const [exhaustedFilter, setExhaustedFilter] = useState(ANY)
   const [overageFilter, setOverageFilter] = useState(ANY)
   const [expiringFilter, setExpiringFilter] = useState(ANY)
-  const [renewFilter, setRenewFilter] = useState(ANY)
   const [highUsageFilter, setHighUsageFilter] = useState(ANY)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
@@ -135,17 +133,6 @@ export default function SubscriptionsPage() {
     return { active, exhausted, onPayg, expiring7 }
   }, [list])
 
-  const counts = useMemo(() => {
-    const by = (s: SubscriptionStatus) => list.filter((x) => x.status === s).length
-    return {
-      [ANY]: list.length,
-      active: by('active'),
-      expiring: by('expiring'),
-      quota_exhausted: by('quota_exhausted'),
-      cancelled: by('cancelled'),
-    } as Record<string, number>
-  }, [list])
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return list.filter((s) => {
@@ -161,8 +148,6 @@ export default function SubscriptionsPage() {
         const limit = expiringFilter === '7' ? 7 : 30
         if (days < 0 || days > limit) return false
       }
-      if (renewFilter === 'on' && !s.autoRenew) return false
-      if (renewFilter === 'off' && s.autoRenew) return false
       if (highUsageFilter === 'yes' && percent(s.quotaUsed, s.quotaTotal) <= 80) return false
       if (!q) return true
       return s.companyInn.includes(q) || s.companyName.toLowerCase().includes(q)
@@ -176,7 +161,6 @@ export default function SubscriptionsPage() {
     exhaustedFilter,
     overageFilter,
     expiringFilter,
-    renewFilter,
     highUsageFilter,
   ])
 
@@ -358,20 +342,6 @@ export default function SubscriptionsPage() {
         ),
     },
     {
-      key: 'autoRenew',
-      header: 'Автопродление',
-      cell: (s) => (
-        <span
-          className={cn(
-            'inline-flex items-center rounded-md px-3 py-1 text-sm font-medium',
-            s.autoRenew ? 'bg-green-100 text-emerald-600' : 'bg-gray-100 text-gray-500',
-          )}
-        >
-          {s.autoRenew ? 'Вкл' : 'Выкл'}
-        </span>
-      ),
-    },
-    {
       key: 'paid',
       header: 'Оплачено',
       cls: 'text-right',
@@ -380,42 +350,6 @@ export default function SubscriptionsPage() {
           {formatMoney(s.amountPaid)}
         </span>
       ),
-    },
-    {
-      key: 'resolutions',
-      header: 'Решение',
-      cell: (s) =>
-        s.status === 'quota_exhausted' ? (
-          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              title="A — перекупить тот же план"
-              onClick={() => openAction('rebuy', s)}
-              className="rounded-lg border border-Smart-blue px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-Smart-blue transition hover:bg-blue-50"
-            >
-              A · Перекупить
-            </button>
-            <button
-              type="button"
-              title="B — сменить план"
-              onClick={() => openAction('switch_plan', s)}
-              className="rounded-lg border border-Smart-blue px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-Smart-blue transition hover:bg-blue-50"
-            >
-              B · Сменить
-            </button>
-            <button
-              type="button"
-              title="C — оплата за документ на остаток периода"
-              disabled={s.overageMode === 'payg'}
-              onClick={() => openAction('enable_payg', s)}
-              className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              C · За документ
-            </button>
-          </div>
-        ) : (
-          <span className="text-gray-400">—</span>
-        ),
     },
     {
       key: 'actions',
@@ -449,21 +383,6 @@ export default function SubscriptionsPage() {
                 label: 'Продлить период',
                 icon: <CalendarPlus className="size-4" />,
                 onClick: () => openAction('extend', s),
-              },
-              {
-                label: 'Сменить план',
-                icon: <Repeat className="size-4" />,
-                onClick: () => openAction('change_plan', s),
-              },
-              {
-                label: s.autoRenew ? 'Выключить автопродление' : 'Включить автопродление',
-                icon: <RotateCcw className="size-4" />,
-                onClick: () => openAction('toggle_renew', s),
-              },
-              {
-                label: 'Сбросить квоту',
-                icon: <RefreshCw className="size-4" />,
-                onClick: () => openAction('reset_quota', s),
               },
               {
                 label: 'Отменить подписку',
@@ -737,16 +656,6 @@ export default function SubscriptionsPage() {
               ]}
             />
             <Select
-              label="Автопродление"
-              value={renewFilter}
-              onChange={resetPage(setRenewFilter)}
-              options={[
-                { value: ANY, label: 'Не важно' },
-                { value: 'on', label: 'Включено' },
-                { value: 'off', label: 'Выключено' },
-              ]}
-            />
-            <Select
               label="Квота использована > 80%"
               value={highUsageFilter}
               onChange={resetPage(setHighUsageFilter)}
@@ -759,7 +668,7 @@ export default function SubscriptionsPage() {
         )}
 
         <Tabs
-          tabs={statusTabs.map((t) => ({ ...t, count: counts[t.key] ?? 0 }))}
+          tabs={statusTabs.map((t) => ({ key: t.key, label: t.label }))}
           active={tab}
           onChange={resetPage(setTab)}
         />
