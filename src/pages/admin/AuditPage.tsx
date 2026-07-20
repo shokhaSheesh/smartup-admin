@@ -12,7 +12,8 @@ import { StatCard } from '@/components/ui/StatCard'
 import { AuditResultBadge } from '@/components/ui/StatusBadge'
 import { adminUsers, auditLog } from '@/data/mock'
 import type { AuditEntry } from '@/types/admin'
-import { adminRoleLabel, auditResultLabel } from '@/types/labels'
+import { auditResultLabel } from '@/types/labels'
+import { roleName } from '@/data/roles'
 import { formatDateTime, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
@@ -72,7 +73,7 @@ function exportCsv(entries: AuditEntry[]) {
     [
       formatDateTime(e.createdAt),
       e.adminName,
-      adminRoleLabel[e.adminRole],
+      roleName(e.adminRole),
       e.action,
       TARGET_TYPE_LABEL[e.targetType],
       e.target,
@@ -192,7 +193,7 @@ export default function AuditPage() {
       cell: (e) => (
         <div className="flex flex-col">
           <span className="text-sm font-medium text-slate-800">{e.adminName}</span>
-          <span className="text-xs text-gray-500">{adminRoleLabel[e.adminRole]}</span>
+          <span className="text-xs text-gray-500">{roleName(e.adminRole)}</span>
         </div>
       ),
     },
@@ -408,7 +409,7 @@ export default function AuditPage() {
               <Field label="Идентификатор записи">{detail.id}</Field>
               <Field label="Время">{formatDateTime(detail.createdAt)}</Field>
               <Field label="Администратор">{detail.adminName}</Field>
-              <Field label="Роль">{adminRoleLabel[detail.adminRole]}</Field>
+              <Field label="Роль">{roleName(detail.adminRole)}</Field>
               <Field label="Действие">{detail.action}</Field>
               <Field label="Результат">
                 <AuditResultBadge result={detail.result} />

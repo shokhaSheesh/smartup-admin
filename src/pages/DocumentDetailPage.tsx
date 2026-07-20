@@ -8,7 +8,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ChargeTypeBadge, DocStatusBadge } from '@/components/ui/StatusBadge'
 import { companies, currentAdmin, documents, userNameById } from '@/data/mock'
 import type { AdminDocument, Company } from '@/types/admin'
-import { adminRoleLabel, chargeTypeLabel, docDirectionLabel } from '@/types/labels'
+import { chargeTypeLabel, docDirectionLabel } from '@/types/labels'
+import { roleName } from '@/data/roles'
 import { formatDate, formatDateTime, formatInn, formatMoney } from '@/lib/format'
 
 type LineItem = {
@@ -192,7 +193,7 @@ export default function DocumentDetailPage() {
       id: 'revealed',
       at: revealedAt,
       title: 'Просмотр содержимого администратором',
-      by: `${currentAdmin.fullName} · ${adminRoleLabel[currentAdmin.role]}`,
+      by: `${currentAdmin.fullName} · ${roleName(currentAdmin.role)}`,
       note: revealReason ? `Основание: ${revealReason}` : undefined,
       icon: <Eye className="size-4 text-amber-500" />,
     })

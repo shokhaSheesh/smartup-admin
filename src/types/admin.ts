@@ -8,7 +8,8 @@ export type DocDirection = 'incoming' | 'outgoing'
 export type DocStatus = 'pending' | 'signed' | 'rejected' | 'cancelled'
 export type UserStatus = 'active' | 'blocked'
 export type TenantUserRole = 'director' | 'accountant' | 'operator'
-export type AdminRole = 'super_admin' | 'support' | 'finance' | 'analyst'
+/** Role id — roles are created by admins, so this is not a fixed set. */
+export type AdminRole = string
 export type TxType =
   | 'topup'
   | 'document_charge'
@@ -305,15 +306,6 @@ export type AdminUser = {
   status: 'active' | 'disabled'
   lastLoginAt: string
   createdAt: string
-}
-
-export type PermissionLevel = 'full' | 'view' | 'edit' | 'metadata' | 'own' | 'none'
-
-export type Role = {
-  id: AdminRole
-  name: string
-  description: string
-  permissions: Record<string, PermissionLevel>
 }
 
 export type AuditEntry = {

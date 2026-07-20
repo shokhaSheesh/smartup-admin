@@ -12,15 +12,9 @@ import { RowMenu } from '@/components/ui/RowMenu'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { adminUsers } from '@/data/mock'
 import type { AdminRole, AdminUser } from '@/types/admin'
-import { adminRoleLabel } from '@/types/labels'
+import { roleName, useRoles } from '@/data/roles'
 import { formatDate, formatDateTime, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
-
-const ROLE_IDS = Object.keys(adminRoleLabel) as AdminRole[]
-
-const ROLE_OPTIONS = ROLE_IDS.map((r) => ({ value: r, label: adminRoleLabel[r] }))
-
-const ROLE_FILTER_OPTIONS = [{ value: 'all', label: 'Все роли' }, ...ROLE_OPTIONS]
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'all', label: 'Все статусы' },
@@ -65,6 +59,17 @@ const emptyInvite: InviteDraft = {
 
 export default function TeamPage() {
   const [team, setTeam] = useState<AdminUser[]>(adminUsers)
+
+  /** Options come from the roles store, so a newly created role is assignable. */
+  const roles = useRoles()
+  const roleOptions = useMemo(
+    () => roles.map((r) => ({ value: r.id, label: r.name })),
+    [roles],
+  )
+  const roleFilterOptions = useMemo(
+    () => [{ value: 'all', label: 'Все роли' }, ...roleOptions],
+    [roleOptions],
+  )
 
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -160,7 +165,7 @@ export default function TeamPage() {
       header: 'Роль',
       cell: (u) => (
         <span className="inline-flex items-center rounded-md bg-blue-50 px-3 py-1 text-sm font-medium text-Smart-blue">
-          {adminRoleLabel[u.role]}
+          {roleName(u.role)}
         </span>
       ),
     },
@@ -240,7 +245,7 @@ export default function TeamPage() {
           <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-3">
             <Select
               label="Роль"
-              options={ROLE_FILTER_OPTIONS}
+              options={roleFilterOptions}
               value={roleFilter}
               onChange={setRoleFilter}
             />
@@ -308,7 +313,7 @@ export default function TeamPage() {
           />
           <Select
             label="Роль"
-            options={ROLE_OPTIONS}
+            options={roleOptions}
             value={invite.role}
             onChange={(v) => setInvite({ ...invite, role: v as AdminRole })}
           />
@@ -345,7 +350,7 @@ export default function TeamPage() {
           />
           <Select
             label="Роль"
-            options={ROLE_OPTIONS}
+            options={roleOptions}
             value={edit.role}
             onChange={(v) => setEdit({ ...edit, role: v as AdminRole })}
           />

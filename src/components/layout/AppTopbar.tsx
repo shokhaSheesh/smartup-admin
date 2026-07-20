@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { currentAdmin } from '@/data/mock'
-import { adminRoleLabel } from '@/types/labels'
+import { roleName } from '@/data/roles'
 
 type AppTopbarProps = {
   collapsed: boolean
@@ -109,7 +109,7 @@ export function AppTopbar({ collapsed, onToggleCollapse }: AppTopbarProps) {
                 {currentAdmin.fullName}
               </span>
               <span className="text-xs font-medium text-Smart-blue">
-                {adminRoleLabel[currentAdmin.role]}
+                {roleName(currentAdmin.role)}
               </span>
             </span>
             <ChevronDown

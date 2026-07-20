@@ -16,7 +16,6 @@ import type {
   Payment,
   Plan,
   PriceTier,
-  Role,
   Subscription,
   SubscriptionStatus,
   TenantStatus,
@@ -780,54 +779,6 @@ export const transactions: Transaction[] = Array.from({ length: 260 }, (_, i) =>
 
 /* -------------------------------------------------------------------- roles */
 
-export const PERMISSION_MODULES = [
-  { key: 'tenants', label: 'Компании' },
-  { key: 'documents', label: 'Документы (содержимое)' },
-  { key: 'billing', label: 'Настройки биллинга' },
-  { key: 'adjustments', label: 'Ручные корректировки' },
-  { key: 'team', label: 'Команда админов' },
-  { key: 'audit', label: 'Журнал аудита' },
-] as const
-
-export const roles: Role[] = [
-  {
-    id: 'super_admin',
-    description: 'Полный доступ ко всем модулям платформы.',
-    name: 'Супер-админ',
-    permissions: {
-      tenants: 'full', documents: 'full', billing: 'full',
-      adjustments: 'full', team: 'full', audit: 'full',
-    },
-  },
-  {
-    id: 'support',
-    description: 'Работа с клиентами: редактирование, блокировка, доступ к документам.',
-    name: 'Поддержка',
-    permissions: {
-      tenants: 'edit', documents: 'full', billing: 'view',
-      adjustments: 'none', team: 'none', audit: 'own',
-    },
-  },
-  {
-    id: 'finance',
-    description: 'Биллинг, тарифы и корректировки балансов.',
-    name: 'Финансы',
-    permissions: {
-      tenants: 'view', documents: 'metadata', billing: 'full',
-      adjustments: 'full', team: 'none', audit: 'own',
-    },
-  },
-  {
-    id: 'analyst',
-    description: 'Только чтение. Без доступа к содержимому документов.',
-    name: 'Аналитик',
-    permissions: {
-      tenants: 'view', documents: 'metadata', billing: 'view',
-      adjustments: 'none', team: 'none', audit: 'none',
-    },
-  },
-]
-
 /* ---------------------------------------------------------------- audit log */
 
 const AUDIT_ACTIONS: Array<{
@@ -864,7 +815,7 @@ export const auditLog: AuditEntry[] = Array.from({ length: 180 }, (_, i): AuditE
         : entry.targetType === 'Plan'
           ? pick(plans).name
           : entry.targetType === 'Role'
-            ? pick(roles).name
+            ? pick(['Супер-админ', 'Поддержка', 'Финансы', 'Аналитик'])
             : c.inn
 
   return {

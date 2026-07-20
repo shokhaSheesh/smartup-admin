@@ -9,7 +9,6 @@ import type {
   UserStatus,
   TenantUserRole,
   UserKind,
-  AdminRole,
   TxType,
   PaymentMethod,
   PaymentStatus,
@@ -72,13 +71,6 @@ export const tenantUserRoleLabel: Record<TenantUserRole, string> = {
   director: 'Директор',
   accountant: 'Бухгалтер',
   operator: 'Оператор',
-}
-
-export const adminRoleLabel: Record<AdminRole, string> = {
-  super_admin: 'Супер-админ',
-  support: 'Поддержка',
-  finance: 'Финансы',
-  analyst: 'Аналитик',
 }
 
 export const txTypeLabel: Record<TxType, string> = {
