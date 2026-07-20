@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
-import { KeyRound, Power, ShieldCheck, ShieldAlert, UserCog, UserPlus } from 'lucide-react'
+import { Power, UserCog, UserPlus } from 'lucide-react'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
-import { Checkbox } from '@/components/ui/Checkbox'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { RowMenu } from '@/components/ui/RowMenu'
@@ -50,27 +49,11 @@ function AdminStatusBadge({ status }: { status: AdminUser['status'] }) {
   )
 }
 
-/** Missing 2FA on an admin account is a security risk — surface it in amber. */
-function TwoFaBadge({ enabled }: { enabled: boolean }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium',
-        enabled ? 'bg-green-100 text-emerald-600' : 'bg-amber-50 text-amber-600',
-      )}
-    >
-      {enabled ? <ShieldCheck className="size-4" /> : <ShieldAlert className="size-4" />}
-      {enabled ? 'Включена' : 'Не настроена'}
-    </span>
-  )
-}
-
 type InviteDraft = {
   fullName: string
   email: string
   phone: string
   role: AdminRole
-  require2fa: boolean
 }
 
 const emptyInvite: InviteDraft = {
@@ -78,7 +61,6 @@ const emptyInvite: InviteDraft = {
   email: '',
   phone: '',
   role: 'support',
-  require2fa: true,
 }
 
 export default function TeamPage() {
@@ -96,7 +78,6 @@ export default function TeamPage() {
   const [nextRole, setNextRole] = useState<AdminRole>('support')
 
   const [toggleTarget, setToggleTarget] = useState<AdminUser | null>(null)
-  const [resetTarget, setResetTarget] = useState<AdminUser | null>(null)
 
   const filtersActive = roleFilter !== 'all' || statusFilter !== 'all'
 
@@ -114,7 +95,6 @@ export default function TeamPage() {
     })
   }, [team, search, roleFilter, statusFilter])
 
-  const without2fa = team.filter((u) => !u.twofaEnabled && u.status === 'active').length
 
   const inviteValid =
     invite.fullName.trim().length > 0 && invite.email.trim().length > 0
@@ -128,7 +108,6 @@ export default function TeamPage() {
       phone: invite.phone.trim(),
       role: invite.role,
       status: 'active',
-      twofaEnabled: false,
       lastLoginAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     }
@@ -159,15 +138,6 @@ export default function TeamPage() {
     setToggleTarget(null)
   }
 
-  function apply2faReset(reason: string) {
-    if (!resetTarget) return
-    void reason
-    setTeam((prev) =>
-      prev.map((u) => (u.id === resetTarget.id ? { ...u, twofaEnabled: false } : u)),
-    )
-    setResetTarget(null)
-  }
-
   const columns: Column<AdminUser>[] = [
     {
       key: 'fullName',
@@ -178,11 +148,6 @@ export default function TeamPage() {
           <span className="text-xs text-gray-500">{u.phone}</span>
         </div>
       ),
-    },
-    {
-      key: 'email',
-      header: 'Email',
-      cell: (u) => <span className="text-sm whitespace-nowrap text-gray-900">{u.email}</span>,
     },
     {
       key: 'role',
@@ -208,11 +173,6 @@ export default function TeamPage() {
       ),
     },
     {
-      key: 'twofa',
-      header: '2FA включена',
-      cell: (u) => <TwoFaBadge enabled={u.twofaEnabled} />,
-    },
-    {
       key: 'createdAt',
       header: 'Создан',
       cell: (u) => (
@@ -234,11 +194,6 @@ export default function TeamPage() {
                   setNextRole(u.role)
                   setRoleTarget(u)
                 },
-              },
-              {
-                label: 'Сбросить 2FA',
-                icon: <KeyRound className="size-4" />,
-                onClick: () => setResetTarget(u),
               },
               u.status === 'active'
                 ? {
@@ -267,20 +222,6 @@ export default function TeamPage() {
         title="Команда администраторов"
         subtitle={`${formatNumber(team.length)} учётных записей с доступом к панели управления`}
       />
-
-      {without2fa > 0 && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-500" />
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-semibold text-amber-700">
-              {formatNumber(without2fa)} активных администраторов без двухфакторной аутентификации
-            </span>
-            <span className="text-sm text-amber-600">
-              Учётные записи с доступом к содержимому документов должны использовать 2FA.
-            </span>
-          </div>
-        </div>
-      )}
 
       <PageCard>
         <Toolbar
@@ -376,15 +317,6 @@ export default function TeamPage() {
             value={invite.role}
             onChange={(v) => setInvite({ ...invite, role: v as AdminRole })}
           />
-          <Checkbox
-            checked={invite.require2fa}
-            onChange={(v) => setInvite({ ...invite, require2fa: v })}
-          >
-            <span className="text-sm text-slate-700">
-              Требовать 2FA при первом входе
-            </span>
-          </Checkbox>
-
           <div className="flex items-center justify-end gap-3 pt-1">
             <Button hierarchy="secondary-gray" onClick={() => setInviteOpen(false)}>
               Отменить
@@ -450,21 +382,6 @@ export default function TeamPage() {
         }
       />
 
-      <ConfirmDialog
-        open={resetTarget !== null}
-        onClose={() => setResetTarget(null)}
-        onConfirm={apply2faReset}
-        title="Сбросить 2FA"
-        confirmLabel="Сбросить"
-        destructive
-        description={
-          <>
-            Текущее устройство{' '}
-            <b className="font-semibold text-slate-800">{resetTarget?.fullName}</b> будет
-            отвязано. При следующем входе потребуется повторная регистрация второго фактора.
-          </>
-        }
-      />
     </div>
   )
 }

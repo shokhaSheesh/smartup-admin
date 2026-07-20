@@ -303,7 +303,6 @@ export type AdminUser = {
   phone: string
   role: AdminRole
   status: 'active' | 'disabled'
-  twofaEnabled: boolean
   lastLoginAt: string
   createdAt: string
 }
