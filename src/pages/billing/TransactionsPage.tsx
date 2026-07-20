@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, FileText } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
+import { StatCard } from '@/components/ui/StatCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
-import { Toolbar, ToolbarIconButton } from '@/components/ui/Toolbar'
+import { Toolbar } from '@/components/ui/Toolbar'
 import { Pagination, paginate, PAGE_SIZES } from '@/components/ui/Pagination'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
@@ -31,41 +32,6 @@ const ADMIN_OPTIONS = [
   { value: 'system', label: 'Системные (без администратора)' },
   ...adminUsers.map((a) => ({ value: a.fullName, label: a.fullName })),
 ]
-
-/** Client-side CSV export of the ledger — UTF-8 BOM so Excel reads Cyrillic. */
-function exportTransactionsCsv(rows: Transaction[]) {
-  const headers = [
-    'Дата/время',
-    'ИНН',
-    'Компания',
-    'Тип',
-    'Сумма',
-    'Документ №',
-    'Администратор',
-    'Причина',
-  ]
-  const body = rows.map((t) => [
-    formatDateTime(t.createdAt),
-    t.companyInn,
-    t.companyName,
-    txTypeLabel[t.type],
-    formatSigned(t.amount),
-    t.documentNumber ?? '',
-    t.adminName ?? '',
-    t.reason ?? '',
-  ])
-
-  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
-  const csv = [headers, ...body].map((r) => r.map(escape).join(';')).join('\r\n')
-
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `transactions-${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
-}
 
 export default function TransactionsPage() {
   const navigate = useNavigate()
@@ -227,6 +193,23 @@ export default function TransactionsPage() {
         subtitle={`Неизменяемый журнал движений по балансам — ${formatNumber(transactions.length)} записей`}
       />
 
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <StatCard
+          value={formatSigned(totals.credit)}
+          label="Начислено"
+          icon={ArrowDownLeft}
+          iconBg="bg-green-100"
+          iconColor="text-emerald-600"
+        />
+        <StatCard
+          value={formatSigned(totals.debit)}
+          label="Списано"
+          icon={ArrowUpRight}
+          iconBg="bg-red-100"
+          iconColor="text-red-600"
+        />
+      </div>
+
       <PageCard>
         <Toolbar
           search={search}
@@ -237,13 +220,7 @@ export default function TransactionsPage() {
           placeholder="Поиск по компании, ИНН, документу, администратору или причине"
           filtersActive={showFilters || filtersActive}
           onToggleFilters={() => setShowFilters((v) => !v)}
-        >
-          <ToolbarIconButton
-            icon={Download}
-            label="Экспорт CSV"
-            onClick={() => exportTransactionsCsv(filtered)}
-          />
-        </Toolbar>
+        />
 
         {showFilters && (
           <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-3">
@@ -331,22 +308,6 @@ export default function TransactionsPage() {
             </div>
           </div>
         )}
-
-        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-slate-600">
-          <span>
-            Начислено:{' '}
-            <b className="font-bold tabular-nums text-emerald-600">{formatSigned(totals.credit)}</b>
-          </span>
-          <span>
-            Списано:{' '}
-            <b className="font-bold tabular-nums text-red-600">{formatSigned(totals.debit)}</b>
-          </span>
-          <span className="flex items-center gap-1.5 text-gray-500">
-            <FileText className="size-4" />
-            Доступны только экспорт и переход к документу — редактирование записей не
-            предусмотрено.
-          </span>
-        </div>
 
         <DataTable
           columns={columns}
