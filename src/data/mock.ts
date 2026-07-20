@@ -109,76 +109,61 @@ const phone = () => `+998 ${int(90, 99)} ${digits(3)}-${digits(2)}-${digits(2)}`
 export const plans: Plan[] = [
   {
     id: 'plan-start',
-    nameRu: 'Старт',
-    nameUz: 'Start',
-    description: 'Для небольших компаний с редким документооборотом.',
+    name: 'Старт',
     price: 150_000,
-    period: 'month',
+    durationDays: 30,
     docQuota: 300,
     maxEmployees: 3,
     features: ['Электронная подпись', 'Базовая поддержка'],
     isActive: true,
-    visibleToNewSignups: true,
     sortOrder: 1,
     activeSubscribers: 0,
   },
   {
     id: 'plan-business',
-    nameRu: 'Бизнес',
-    nameUz: 'Biznes',
-    description: 'Оптимальный план для среднего бизнеса.',
+    name: 'Бизнес',
     price: 450_000,
-    period: 'month',
+    durationDays: 30,
     docQuota: 1_500,
     maxEmployees: 10,
     features: ['Электронная подпись', 'Приоритетная поддержка', 'Импорт Excel'],
     isActive: true,
-    visibleToNewSignups: true,
     sortOrder: 2,
     activeSubscribers: 0,
   },
   {
     id: 'plan-corp',
-    nameRu: 'Корпоративный',
-    nameUz: 'Korporativ',
-    description: 'Для крупных компаний с высоким объёмом документов.',
+    name: 'Корпоративный',
     price: 1_800_000,
-    period: 'month',
+    durationDays: 30,
     docQuota: 10_000,
     maxEmployees: 50,
     features: ['Электронная подпись', 'Выделенный менеджер', 'API-доступ', 'Импорт Excel'],
     isActive: true,
-    visibleToNewSignups: true,
     sortOrder: 3,
     activeSubscribers: 0,
   },
   {
     id: 'plan-corp-year',
-    nameRu: 'Корпоративный (год)',
-    nameUz: 'Korporativ (yillik)',
-    description: 'Годовая оплата корпоративного плана со скидкой 15%.',
+    name: 'Корпоративный (год)',
     price: 18_360_000,
-    period: 'year',
+    durationDays: 365,
     docQuota: 130_000,
     maxEmployees: 50,
     features: ['Электронная подпись', 'Выделенный менеджер', 'API-доступ', 'Импорт Excel'],
     isActive: true,
-    visibleToNewSignups: true,
     sortOrder: 4,
     activeSubscribers: 0,
   },
   {
     id: 'plan-legacy',
-    nameRu: 'Промо 2025',
-    nameUz: 'Promo 2025',
-    description: 'Архивный промо-план. Новые подписки недоступны.',
+    name: 'Промо 2025',
     price: 99_000,
-    period: 'month',
+    durationDays: 30,
     docQuota: 250,
     maxEmployees: 3,
     features: ['Электронная подпись'],
     isActive: false,
-    visibleToNewSignups: false,
     sortOrder: 5,
     activeSubscribers: 0,
   },
@@ -278,7 +263,7 @@ companies.forEach((c, i) => {
   if (c.billingMode === 'payg') return
 
   const plan = plans[int(0, 2)]
-  const periodDays = plan.period === 'year' ? 365 : plan.period === 'quarter' ? 90 : 30
+  const periodDays = plan.durationDays
   const elapsed = int(1, periodDays - 1)
   const periodEnd = daysAhead(periodDays - elapsed)
 
@@ -308,7 +293,7 @@ companies.forEach((c, i) => {
 
   const overageDocs = overageMode === 'payg' ? int(5, 400) : 0
 
-  c.planName = plan.nameRu
+  c.planName = plan.name
 
   subscriptionList.push({
     id: `sub-${i + 1}`,
@@ -316,7 +301,7 @@ companies.forEach((c, i) => {
     companyInn: c.inn,
     companyName: c.name,
     planId: plan.id,
-    planName: plan.nameRu,
+    planName: plan.name,
     status,
     periodStart: daysAgo(elapsed),
     periodEnd,
@@ -737,8 +722,8 @@ export const PERMISSION_MODULES = [
 export const roles: Role[] = [
   {
     id: 'super_admin',
-    name: 'Супер-админ',
     description: 'Полный доступ ко всем модулям платформы.',
+    name: 'Супер-админ',
     permissions: {
       tenants: 'full', documents: 'full', billing: 'full',
       adjustments: 'full', team: 'full', audit: 'full',
@@ -746,8 +731,8 @@ export const roles: Role[] = [
   },
   {
     id: 'support',
-    name: 'Поддержка',
     description: 'Работа с клиентами: редактирование, блокировка, доступ к документам.',
+    name: 'Поддержка',
     permissions: {
       tenants: 'edit', documents: 'full', billing: 'view',
       adjustments: 'none', team: 'none', audit: 'own',
@@ -755,8 +740,8 @@ export const roles: Role[] = [
   },
   {
     id: 'finance',
-    name: 'Финансы',
     description: 'Биллинг, тарифы и корректировки балансов.',
+    name: 'Финансы',
     permissions: {
       tenants: 'view', documents: 'metadata', billing: 'full',
       adjustments: 'full', team: 'none', audit: 'own',
@@ -764,8 +749,8 @@ export const roles: Role[] = [
   },
   {
     id: 'analyst',
-    name: 'Аналитик',
     description: 'Только чтение. Без доступа к содержимому документов.',
+    name: 'Аналитик',
     permissions: {
       tenants: 'view', documents: 'metadata', billing: 'view',
       adjustments: 'none', team: 'none', audit: 'none',
@@ -807,7 +792,7 @@ export const auditLog: AuditEntry[] = Array.from({ length: 180 }, (_, i): AuditE
       : entry.targetType === 'Session'
         ? admin.email
         : entry.targetType === 'Plan'
-          ? pick(plans).nameRu
+          ? pick(plans).name
           : entry.targetType === 'Role'
             ? pick(roles).name
             : c.inn

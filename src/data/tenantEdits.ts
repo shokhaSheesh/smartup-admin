@@ -115,7 +115,7 @@ export function effectiveTerms(
 /** Period end implied by a plan starting today — the auto-fill value. */
 export function periodEndForPlan(planId: string, from: Date = new Date()): string {
   const plan = plans.find((p) => p.id === planId)
-  const days = plan?.period === 'year' ? 365 : plan?.period === 'quarter' ? 90 : 30
+  const days = plan?.durationDays ?? 30
   const end = new Date(from.getTime() + days * 86_400_000)
   return end.toISOString()
 }

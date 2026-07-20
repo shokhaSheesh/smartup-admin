@@ -1,15 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Plus, Pencil, Copy, Archive } from 'lucide-react'
+import { Plus, Pencil, Copy, Archive, X } from 'lucide-react'
 import type { Plan } from '@/types/admin'
 import { plans as seedPlans } from '@/data/mock'
-import { periodLabel } from '@/types/labels'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { Checkbox } from '@/components/ui/Checkbox'
 import { Button } from '@/components/ui/Button'
 import { RowMenu } from '@/components/ui/RowMenu'
@@ -17,68 +15,39 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatMoney, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
-type PlanPeriod = Plan['period']
-
-/** Feature flags offered by the platform — checkbox list in the plan form. */
-const FEATURE_OPTIONS = [
-  'Электронная подпись',
-  'Базовая поддержка',
-  'Приоритетная поддержка',
-  'Персональный менеджер',
-  'Импорт Excel',
-  'API-доступ',
-  'Интеграция 1С',
-  'Расширенная аналитика',
-]
-
-const PERIOD_OPTIONS: Array<{ value: PlanPeriod; label: string }> = [
-  { value: 'month', label: periodLabel.month },
-  { value: 'quarter', label: periodLabel.quarter },
-  { value: 'year', label: periodLabel.year },
-]
-
 type PlanDraft = {
-  nameRu: string
-  nameUz: string
-  description: string
+  name: string
   price: string
-  period: PlanPeriod
+  durationDays: string
   docQuota: string
   maxEmployees: string
   features: string[]
   isActive: boolean
-  visibleToNewSignups: boolean
   sortOrder: string
 }
 
 function emptyDraft(sortOrder: number): PlanDraft {
   return {
-    nameRu: '',
-    nameUz: '',
-    description: '',
+    name: '',
     price: '',
-    period: 'month',
+    durationDays: '30',
     docQuota: '',
     maxEmployees: '',
     features: [],
     isActive: true,
-    visibleToNewSignups: true,
     sortOrder: String(sortOrder),
   }
 }
 
 function draftFromPlan(plan: Plan): PlanDraft {
   return {
-    nameRu: plan.nameRu,
-    nameUz: plan.nameUz,
-    description: plan.description,
+    name: plan.name,
     price: String(plan.price),
-    period: plan.period,
+    durationDays: String(plan.durationDays),
     docQuota: String(plan.docQuota),
     maxEmployees: String(plan.maxEmployees),
     features: [...plan.features],
     isActive: plan.isActive,
-    visibleToNewSignups: plan.visibleToNewSignups,
     sortOrder: String(plan.sortOrder),
   }
 }
@@ -98,6 +67,17 @@ export default function PlansPage() {
   const [touched, setTouched] = useState(false)
 
   const [archiveTarget, setArchiveTarget] = useState<Plan | null>(null)
+  const [featureDraft, setFeatureDraft] = useState('')
+
+  /** Adds a typed-in feature, ignoring blanks and duplicates. */
+  function addFeature() {
+    const value = featureDraft.trim()
+    if (!value) return
+    setDraft((d) =>
+      d.features.includes(value) ? d : { ...d, features: [...d.features, value] },
+    )
+    setFeatureDraft('')
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -105,15 +85,15 @@ export default function PlansPage() {
     if (!q) return sorted
     return sorted.filter(
       (p) =>
-        p.nameRu.toLowerCase().includes(q) ||
-        p.nameUz.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q),
+        p.name.toLowerCase().includes(q) ||
+        p.features.some((f) => f.toLowerCase().includes(q)),
     )
   }, [list, search])
 
   function openCreate() {
     setEditingId(null)
     setDraft(emptyDraft(list.length + 1))
+    setFeatureDraft('')
     setTouched(false)
     setFormOpen(true)
   }
@@ -121,6 +101,7 @@ export default function PlansPage() {
   function openEdit(plan: Plan) {
     setEditingId(plan.id)
     setDraft(draftFromPlan(plan))
+    setFeatureDraft('')
     setTouched(false)
     setFormOpen(true)
   }
@@ -129,18 +110,16 @@ export default function PlansPage() {
     const copy: Plan = {
       ...plan,
       id: `plan-copy-${Date.now()}`,
-      nameRu: `${plan.nameRu} (копия)`,
-      nameUz: `${plan.nameUz} (nusxa)`,
+      name: `${plan.name} (копия)`,
       features: [...plan.features],
       isActive: false,
-      visibleToNewSignups: false,
       sortOrder: Math.max(0, ...list.map((p) => p.sortOrder)) + 1,
       activeSubscribers: 0,
     }
     setList((prev) => [...prev, copy])
   }
 
-  const nameInvalid = draft.nameRu.trim().length === 0
+  const nameInvalid = draft.name.trim().length === 0
 
   function submit() {
     setTouched(true)
@@ -152,16 +131,13 @@ export default function PlansPage() {
           p.id === editingId
             ? {
                 ...p,
-                nameRu: draft.nameRu.trim(),
-                nameUz: draft.nameUz.trim(),
-                description: draft.description.trim(),
+                name: draft.name.trim(),
                 price: toNumber(draft.price),
-                period: draft.period,
+                durationDays: toNumber(draft.durationDays),
                 docQuota: toNumber(draft.docQuota),
                 maxEmployees: toNumber(draft.maxEmployees),
                 features: draft.features,
                 isActive: draft.isActive,
-                visibleToNewSignups: draft.visibleToNewSignups,
                 sortOrder: toNumber(draft.sortOrder),
               }
             : p,
@@ -172,16 +148,13 @@ export default function PlansPage() {
         ...prev,
         {
           id: `plan-${Date.now()}`,
-          nameRu: draft.nameRu.trim(),
-          nameUz: draft.nameUz.trim(),
-          description: draft.description.trim(),
+          name: draft.name.trim(),
           price: toNumber(draft.price),
-          period: draft.period,
+          durationDays: toNumber(draft.durationDays),
           docQuota: toNumber(draft.docQuota),
           maxEmployees: toNumber(draft.maxEmployees),
           features: draft.features,
           isActive: draft.isActive,
-          visibleToNewSignups: draft.visibleToNewSignups,
           sortOrder: toNumber(draft.sortOrder),
           activeSubscribers: 0,
         },
@@ -194,12 +167,7 @@ export default function PlansPage() {
     {
       key: 'name',
       header: 'Название',
-      cell: (p) => (
-        <div className="flex flex-col gap-0.5">
-          <span className="font-medium text-slate-800">{p.nameRu}</span>
-          <span className="text-xs text-gray-500">{p.nameUz}</span>
-        </div>
-      ),
+      cell: (p) => <span className="font-medium text-slate-800">{p.name}</span>,
     },
     {
       key: 'price',
@@ -212,9 +180,14 @@ export default function PlansPage() {
       ),
     },
     {
-      key: 'period',
-      header: 'Период',
-      cell: (p) => <span className="whitespace-nowrap">{periodLabel[p.period]}</span>,
+      key: 'duration',
+      header: 'Длительность',
+      cls: 'text-right',
+      cell: (p) => (
+        <span className="whitespace-nowrap tabular-nums">
+          {formatNumber(p.durationDays)} дн.
+        </span>
+      ),
     },
     {
       key: 'quota',
@@ -317,41 +290,14 @@ export default function PlansPage() {
         maxWidth="max-w-3xl"
       >
         <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input
-              label="Название RU"
-              value={draft.nameRu}
-              destructive={touched && nameInvalid}
-              hint={touched && nameInvalid ? 'Укажите название плана' : undefined}
-              onChange={(e) => setDraft((d) => ({ ...d, nameRu: e.target.value }))}
-              placeholder="Бизнес"
-            />
-            <Input
-              label="Название UZ"
-              value={draft.nameUz}
-              onChange={(e) => setDraft((d) => ({ ...d, nameUz: e.target.value }))}
-              placeholder="Biznes"
-            />
-          </div>
-
-          <div className="mt-4 flex w-full flex-col items-start gap-1.5">
-            <label
-              htmlFor="plan-description"
-              className="text-sm font-medium leading-5 text-slate-700"
-            >
-              Описание
-            </label>
-            <div className="flex w-full items-center gap-2 overflow-hidden rounded-lg bg-white px-3.5 py-2.5 outline outline-1 outline-offset-[-1px] outline-gray-200 transition focus-within:outline-Smart-blue">
-              <textarea
-                id="plan-description"
-                rows={2}
-                value={draft.description}
-                onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-                placeholder="Для кого этот план"
-                className="flex-1 resize-none bg-transparent text-base font-normal leading-6 text-neutral-900 outline-none placeholder:text-gray-500"
-              />
-            </div>
-          </div>
+          <Input
+            label="Название"
+            value={draft.name}
+            destructive={touched && nameInvalid}
+            hint={touched && nameInvalid ? 'Укажите название плана' : undefined}
+            onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+            placeholder="Бизнес"
+          />
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
@@ -361,11 +307,15 @@ export default function PlansPage() {
               onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
               placeholder="450000"
             />
-            <Select
-              label="Период"
-              value={draft.period}
-              options={PERIOD_OPTIONS}
-              onChange={(v) => setDraft((d) => ({ ...d, period: v as PlanPeriod }))}
+            <Input
+              label="Длительность, дней"
+              value={draft.durationDays}
+              inputMode="numeric"
+              hint="Например: 30, 90, 365"
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, durationDays: e.target.value.replace(/[^\d]/g, '') }))
+              }
+              placeholder="30"
             />
             <Input
               label="Включённая квота документов (N)"
@@ -392,25 +342,61 @@ export default function PlansPage() {
           </div>
 
           <div className="mt-6">
-            <span className="text-sm font-medium leading-5 text-slate-700">Функции</span>
-            <div className="mt-2 grid grid-cols-1 gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2">
-              {FEATURE_OPTIONS.map((feature) => (
-                <Checkbox
-                  key={feature}
-                  checked={draft.features.includes(feature)}
-                  onChange={(checked) =>
-                    setDraft((d) => ({
-                      ...d,
-                      features: checked
-                        ? [...d.features, feature]
-                        : d.features.filter((f) => f !== feature),
-                    }))
-                  }
-                >
-                  <span className="text-sm text-slate-700">{feature}</span>
-                </Checkbox>
-              ))}
+            <span className="text-sm leading-5 font-medium text-slate-700">Функции</span>
+            <p className="mt-1 text-sm text-gray-500">
+              Добавьте любые функции, входящие в план — список произвольный.
+            </p>
+
+            <div className="mt-2 flex gap-2">
+              <div className="flex flex-1 items-center rounded-lg bg-white px-3.5 py-2.5 outline outline-1 outline-offset-[-1px] outline-gray-200 transition focus-within:outline-Smart-blue">
+                <input
+                  value={featureDraft}
+                  onChange={(e) => setFeatureDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addFeature()
+                    }
+                  }}
+                  placeholder="Например: Интеграция 1С"
+                  className="flex-1 bg-transparent text-base leading-6 font-normal text-neutral-900 outline-none placeholder:text-gray-500"
+                />
+              </div>
+              <Button
+                hierarchy="secondary-gray"
+                size="md"
+                disabled={featureDraft.trim().length === 0}
+                onClick={addFeature}
+              >
+                Добавить
+              </Button>
             </div>
+
+            {draft.features.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {draft.features.map((feature) => (
+                  <span
+                    key={feature}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 py-1 pr-1.5 pl-3 text-sm font-medium text-Smart-blue"
+                  >
+                    {feature}
+                    <button
+                      type="button"
+                      aria-label={`Удалить «${feature}»`}
+                      onClick={() =>
+                        setDraft((d) => ({
+                          ...d,
+                          features: d.features.filter((f) => f !== feature),
+                        }))
+                      }
+                      className="flex size-5 items-center justify-center rounded transition hover:bg-Smart-blue/10"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
@@ -419,12 +405,6 @@ export default function PlansPage() {
               onChange={(checked) => setDraft((d) => ({ ...d, isActive: checked }))}
             >
               <span className="text-sm text-slate-700">Активен</span>
-            </Checkbox>
-            <Checkbox
-              checked={draft.visibleToNewSignups}
-              onChange={(checked) => setDraft((d) => ({ ...d, visibleToNewSignups: checked }))}
-            >
-              <span className="text-sm text-slate-700">Виден новым регистрациям</span>
             </Checkbox>
           </div>
         </div>
@@ -448,7 +428,7 @@ export default function PlansPage() {
         description={
           archiveTarget && (
             <>
-              План <b className="font-semibold text-slate-800">{archiveTarget.nameRu}</b> перестанет
+              План <b className="font-semibold text-slate-800">{archiveTarget.name}</b> перестанет
               быть доступен для новых подписок. Действующие подписки (
               {formatNumber(archiveTarget.activeSubscribers)}) продолжат работать до конца периода.
               Действие записывается в журнал аудита.
@@ -459,9 +439,7 @@ export default function PlansPage() {
           if (!archiveTarget) return
           setList((prev) =>
             prev.map((p) =>
-              p.id === archiveTarget.id
-                ? { ...p, isActive: false, visibleToNewSignups: false }
-                : p,
+              p.id === archiveTarget.id ? { ...p, isActive: false } : p,
             ),
           )
         }}

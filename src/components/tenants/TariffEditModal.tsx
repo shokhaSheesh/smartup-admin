@@ -9,7 +9,6 @@ import {
   type BalanceAdjustment,
   type TenantEdit,
 } from '@/data/tenantEdits'
-import { periodLabel } from '@/types/labels'
 import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
@@ -201,7 +200,7 @@ export function TariffEditModal({ open, onClose, company, onSave }: TariffEditMo
       company.id,
       {
         planId: planId === NO_PLAN ? null : planId,
-        planName: selectedPlan?.nameRu ?? null,
+        planName: selectedPlan?.name ?? null,
         periodEnd: fromDateInput(periodEnd),
         docQuota: quota === '' ? null : Number(quota),
         maxEmployees: maxEmployees === '' ? null : Number(maxEmployees),
@@ -236,9 +235,9 @@ export function TariffEditModal({ open, onClose, company, onSave }: TariffEditMo
                   .filter((p) => p.isActive || p.id === current.planId)
                   .map((p) => ({
                     value: p.id,
-                    label: `${p.nameRu} — ${formatMoney(p.price)} сум / ${periodLabel[
-                      p.period
-                    ].toLowerCase()}`,
+                    label: `${p.name} — ${formatMoney(p.price)} сум / ${formatNumber(
+                      p.durationDays,
+                    )} дн.`,
                   })),
               ]}
             />
@@ -247,10 +246,10 @@ export function TariffEditModal({ open, onClose, company, onSave }: TariffEditMo
               <div className="flex items-start gap-2 rounded-lg bg-Smart-blue/5 px-3.5 py-2.5">
                 <Wand2 className="mt-0.5 size-4 shrink-0 text-Smart-blue" />
                 <span className="text-sm text-slate-600">
-                  Поля ниже заполнены из плана «{selectedPlan.nameRu}»:{' '}
+                  Поля ниже заполнены из плана «{selectedPlan.name}»:{' '}
                   {formatNumber(selectedPlan.docQuota)} док.,{' '}
                   {formatNumber(selectedPlan.maxEmployees)} сотр.,{' '}
-                  {periodLabel[selectedPlan.period].toLowerCase()}. Их можно изменить —
+                  {formatNumber(selectedPlan.durationDays)} дн. Их можно изменить —
                   изменённые значения помечаются.
                 </span>
               </div>

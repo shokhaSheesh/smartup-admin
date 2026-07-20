@@ -80,7 +80,7 @@ export default function TenantsPage() {
   const planOptions = useMemo(
     () => [
       { value: ANY, label: 'Все планы' },
-      ...plans.map((p) => ({ value: p.nameRu, label: p.nameRu })),
+      ...plans.map((p) => ({ value: p.name, label: p.name })),
       { value: 'none', label: 'Без плана' },
     ],
     [],

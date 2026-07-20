@@ -158,16 +158,15 @@ export type PlatformUser = {
 
 export type Plan = {
   id: string
-  nameRu: string
-  nameUz: string
-  description: string
+  name: string
   price: number
-  period: 'month' | 'quarter' | 'year'
+  /** Plan length in days — entered directly, e.g. 30, 90, 365. */
+  durationDays: number
   docQuota: number
   maxEmployees: number
+  /** Free-form list — admins add whatever a plan includes. */
   features: string[]
   isActive: boolean
-  visibleToNewSignups: boolean
   sortOrder: number
   activeSubscribers: number
 }

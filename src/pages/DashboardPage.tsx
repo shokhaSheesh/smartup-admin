@@ -213,8 +213,9 @@ export default function DashboardPage() {
     const mrr = subscriptions
       .filter((s) => s.status === 'active' || s.status === 'expiring')
       .reduce((sum, s) => {
+        // Normalise each plan's price to a 30-day month.
         const plan = plans.find((p) => p.id === s.planId)
-        const months = plan?.period === 'year' ? 12 : plan?.period === 'quarter' ? 3 : 1
+        const months = Math.max(1, (plan?.durationDays ?? 30) / 30)
         return sum + s.amountPaid / months
       }, 0)
 

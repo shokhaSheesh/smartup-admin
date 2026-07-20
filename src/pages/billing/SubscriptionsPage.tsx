@@ -40,16 +40,9 @@ const ANY = 'all'
 /** Balance under this is treated as "too low to cover overage" in the warning. */
 const LOW_BALANCE_THRESHOLD = 100_000
 
-const PERIOD_MONTHS: Record<Plan['period'], number> = {
-  month: 1,
-  quarter: 3,
-  year: 12,
-}
-
-function addMonths(from: Date, months: number): string {
-  const d = new Date(from)
-  d.setMonth(d.getMonth() + months)
-  return d.toISOString()
+/** Plans are measured in days, so periods advance by days too. */
+function addDays(from: Date, days: number): string {
+  return new Date(from.getTime() + days * 86_400_000).toISOString()
 }
 
 /** Starts a fresh period from now for the given plan. */
@@ -57,7 +50,7 @@ function freshPeriod(plan: Plan): { periodStart: string; periodEnd: string } {
   const now = new Date()
   return {
     periodStart: now.toISOString(),
-    periodEnd: addMonths(now, PERIOD_MONTHS[plan.period]),
+    periodEnd: addDays(now, plan.durationDays),
   }
 }
 
@@ -220,7 +213,7 @@ export default function SubscriptionsPage() {
         update(sub.id, (s) => ({
           ...s,
           status: 'active',
-          periodEnd: addMonths(new Date(s.periodEnd), PERIOD_MONTHS[currentPlan.period]),
+          periodEnd: addDays(new Date(s.periodEnd), currentPlan.durationDays),
         }))
         break
       }
@@ -265,7 +258,7 @@ export default function SubscriptionsPage() {
         update(sub.id, (s) => ({
           ...s,
           planId: targetPlan.id,
-          planName: targetPlan.nameRu,
+          planName: targetPlan.name,
           status: 'active',
           quotaTotal: targetPlan.docQuota,
           quotaUsed: 0,
@@ -534,7 +527,7 @@ export default function SubscriptionsPage() {
                 onChange={setTargetPlanId}
                 options={activePlans.map((p) => ({
                   value: p.id,
-                  label: `${p.nameRu} — ${formatNumber(p.docQuota)} док. / ${formatMoney(
+                  label: `${p.name} — ${formatNumber(p.docQuota)} док. / ${formatMoney(
                     p.price,
                   )} сум`,
                 }))}
@@ -595,8 +588,9 @@ export default function SubscriptionsPage() {
           destructive: false,
           body: (
             <>
-              {who}. Период будет продлён на {pendingPlan ? PERIOD_MONTHS[pendingPlan.period] : 1}{' '}
-              мес. от текущей даты окончания ({formatDate(sub.periodEnd)}).
+              {who}. Период будет продлён на{' '}
+              {formatNumber(pendingPlan?.durationDays ?? 30)} дн. от текущей даты окончания (
+              {formatDate(sub.periodEnd)}).
             </>
           ),
         }
@@ -692,7 +686,7 @@ export default function SubscriptionsPage() {
               onChange={resetPage(setPlanFilter)}
               options={[
                 { value: ANY, label: 'Все планы' },
-                ...plans.map((p) => ({ value: p.id, label: p.nameRu })),
+                ...plans.map((p) => ({ value: p.id, label: p.name })),
               ]}
             />
             <Select

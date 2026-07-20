@@ -117,8 +117,3 @@ export const auditResultLabel: Record<AuditResult, string> = {
   denied: 'Отказано',
 }
 
-export const periodLabel: Record<'month' | 'quarter' | 'year', string> = {
-  month: 'Месяц',
-  quarter: 'Квартал',
-  year: 'Год',
-}
