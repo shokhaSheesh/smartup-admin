@@ -9,8 +9,14 @@ import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
-import { adjustments as seedAdjustments, adminUsers, companies, currentAdmin } from '@/data/mock'
-import type { Adjustment, Company } from '@/types/admin'
+import {
+  adjustments as seedAdjustments,
+  adminUsers,
+  companies,
+  currentAdmin,
+  platformUsers,
+} from '@/data/mock'
+import type { Adjustment } from '@/types/admin'
 import { formatDateTime, formatInn, formatMoney, formatNumber, formatSum } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
@@ -39,14 +45,57 @@ const ADMIN_OPTIONS = [
   ...adminUsers.map((a) => ({ value: a.fullName, label: a.fullName })),
 ]
 
-/** Searchable company picker — matches on ИНН or name, per plan 4.12. */
-function CompanyPicker({
+/** A company or an individual — both hold balances that can be adjusted. */
+type Subject = {
+  type: 'company' | 'individual'
+  id: string
+  name: string
+  taxId: string
+  balance: number
+}
+
+const SUBJECTS: Subject[] = [
+  ...companies.map<Subject>((c) => ({
+    type: 'company',
+    id: c.id,
+    name: c.name,
+    taxId: c.inn,
+    balance: c.balance,
+  })),
+  ...platformUsers
+    .filter((u) => u.kind === 'individual')
+    .map<Subject>((u) => ({
+      type: 'individual',
+      id: u.id,
+      name: u.fullName,
+      taxId: u.pinfl,
+      balance: u.balance ?? 0,
+    })),
+]
+
+function SubjectBadge({ type }: { type: Subject['type'] }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+        type === 'company'
+          ? 'bg-blue-50 text-Smart-blue'
+          : 'bg-purple-50 text-purple-600',
+      )}
+    >
+      {type === 'company' ? 'Компания' : 'Физ. лицо'}
+    </span>
+  )
+}
+
+/** Searchable picker over companies and individuals alike. */
+function SubjectPicker({
   value,
   onChange,
   invalid,
 }: {
-  value: Company | null
-  onChange: (company: Company) => void
+  value: Subject | null
+  onChange: (subject: Subject) => void
   invalid: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -63,16 +112,23 @@ function CompanyPicker({
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const list = q
-      ? companies.filter((c) => c.inn.includes(q) || c.name.toLowerCase().includes(q))
-      : companies
-    return list.slice(0, 40)
+    if (q) {
+      return SUBJECTS.filter(
+        (s) => s.taxId.includes(q) || s.name.toLowerCase().includes(q),
+      ).slice(0, 40)
+    }
+    // Unfiltered, show both kinds — otherwise the companies fill the list and
+    // individuals look absent until someone happens to search for one.
+    return [
+      ...SUBJECTS.filter((s) => s.type === 'company').slice(0, 20),
+      ...SUBJECTS.filter((s) => s.type === 'individual').slice(0, 20),
+    ]
   }, [query])
 
   return (
     <div className="flex w-full flex-col items-start gap-1.5" ref={ref}>
-      <span className="text-sm font-medium leading-5 text-slate-700">
-        Компания<span className="text-red-500"> *</span>
+      <span className="text-sm leading-5 font-medium text-slate-700">
+        Компания или физическое лицо<span className="text-red-500"> *</span>
       </span>
       <div className="relative w-full">
         <div
@@ -85,7 +141,9 @@ function CompanyPicker({
         >
           <Search className="size-5 shrink-0 text-gray-400" />
           <input
-            value={open ? query : value ? `${formatInn(value.inn)} · ${value.name}` : query}
+            value={
+              open ? query : value ? `${formatInn(value.taxId)} · ${value.name}` : query
+            }
             onChange={(e) => {
               setQuery(e.target.value)
               setOpen(true)
@@ -94,41 +152,50 @@ function CompanyPicker({
               setQuery('')
               setOpen(true)
             }}
-            placeholder="Поиск по ИНН или названию"
-            className="flex-1 bg-transparent text-base font-normal leading-6 text-neutral-900 outline-none placeholder:text-gray-500"
+            placeholder="Поиск по ИНН, ПИНФЛ или названию"
+            className="flex-1 bg-transparent text-base leading-6 font-normal text-neutral-900 outline-none placeholder:text-gray-500"
           />
         </div>
 
         {open && (
           <div className="absolute z-20 mt-1.5 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
             {matches.length === 0 ? (
-              <div className="px-3.5 py-2 text-sm text-gray-500">Компании не найдены</div>
+              <div className="px-3.5 py-2 text-sm text-gray-500">Ничего не найдено</div>
             ) : (
-              matches.map((c) => (
+              matches.map((subject) => (
                 <button
-                  key={c.id}
+                  key={`${subject.type}-${subject.id}`}
                   type="button"
                   onClick={() => {
-                    onChange(c)
+                    onChange(subject)
                     setQuery('')
                     setOpen(false)
                   }}
                   className="flex w-full items-center justify-between gap-2 px-3.5 py-2 text-left hover:bg-gray-50"
                 >
-                  <span className="flex flex-col">
-                    <span className="text-sm font-medium text-slate-800">{c.name}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-medium text-slate-800">
+                      {subject.name}
+                    </span>
                     <span className="text-xs text-gray-500">
-                      ИНН {formatInn(c.inn)} · баланс {formatMoney(c.balance)}
+                      {formatInn(subject.taxId)} · баланс {formatMoney(subject.balance)}
                     </span>
                   </span>
-                  {value?.id === c.id && <Check className="size-4 shrink-0 text-Smart-blue" />}
+                  <span className="flex shrink-0 items-center gap-2">
+                    <SubjectBadge type={subject.type} />
+                    {value?.id === subject.id && (
+                      <Check className="size-4 shrink-0 text-Smart-blue" />
+                    )}
+                  </span>
                 </button>
               ))
             )}
           </div>
         )}
       </div>
-      {invalid && <span className="text-sm leading-5 text-red-600">Выберите компанию</span>}
+      {invalid && (
+        <span className="text-sm leading-5 text-red-600">Выберите компанию или физлицо</span>
+      )}
     </div>
   )
 }
@@ -149,7 +216,7 @@ export default function AdjustmentsPage() {
 
   /* --------------------------------------------------------------- the form */
   const [formOpen, setFormOpen] = useState(false)
-  const [fCompany, setFCompany] = useState<Company | null>(null)
+  const [fSubject, setFSubject] = useState<Subject | null>(null)
   const [fDirection, setFDirection] = useState<Direction>('credit')
   const [fAmount, setFAmount] = useState('')
   const [fReason, setFReason] = useState('')
@@ -158,13 +225,13 @@ export default function AdjustmentsPage() {
   const [confirmation, setConfirmation] = useState<Adjustment | null>(null)
 
   const amountValue = Number(fAmount)
-  const companyInvalid = fCompany === null
+  const subjectInvalid = fSubject === null
   const amountInvalid = fAmount.trim() === '' || Number.isNaN(amountValue) || amountValue <= 0
   const reasonInvalid = fReason.trim().length === 0
-  const formInvalid = companyInvalid || amountInvalid || reasonInvalid
+  const formInvalid = subjectInvalid || amountInvalid || reasonInvalid
 
   function openForm() {
-    setFCompany(null)
+    setFSubject(null)
     setFDirection('credit')
     setFAmount('')
     setFReason('')
@@ -175,14 +242,15 @@ export default function AdjustmentsPage() {
 
   function submitForm() {
     setTouched(true)
-    if (formInvalid || !fCompany) return
+    if (formInvalid || !fSubject) return
 
     const entry: Adjustment = {
       id: `adj-local-${Date.now()}`,
       createdAt: new Date().toISOString(),
-      companyId: fCompany.id,
-      companyInn: fCompany.inn,
-      companyName: fCompany.name,
+      subjectType: fSubject.type,
+      subjectId: fSubject.id,
+      subjectName: fSubject.name,
+      subjectTaxId: fSubject.taxId,
       direction: fDirection,
       amount: amountValue,
       reason: fReason.trim(),
@@ -215,8 +283,8 @@ export default function AdjustmentsPage() {
       if (to !== null && ts >= to) return false
       if (!q) return true
       return (
-        a.companyName.toLowerCase().includes(q) ||
-        a.companyInn.includes(q) ||
+        a.subjectName.toLowerCase().includes(q) ||
+        a.subjectTaxId.includes(q) ||
         a.reason.toLowerCase().includes(q) ||
         a.performedBy.toLowerCase().includes(q)
       )
@@ -245,11 +313,14 @@ export default function AdjustmentsPage() {
     },
     {
       key: 'company',
-      header: 'Компания',
+      header: 'Кому',
       cell: (a) => (
         <div className="flex flex-col">
-          <span className="text-sm font-medium text-slate-800">{a.companyName}</span>
-          <span className="text-xs text-gray-500">ИНН {formatInn(a.companyInn)}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-800">{a.subjectName}</span>
+            <SubjectBadge type={a.subjectType} />
+          </div>
+          <span className="text-xs text-gray-500">{formatInn(a.subjectTaxId)}</span>
         </div>
       ),
     },
@@ -322,7 +393,7 @@ export default function AdjustmentsPage() {
               <span className="text-sm font-semibold text-slate-800">
                 Корректировка проведена:{' '}
                 {confirmation.direction === 'credit' ? 'начисление' : 'списание'}{' '}
-                {formatSum(confirmation.amount)} — {confirmation.companyName}
+                {formatSum(confirmation.amount)} — {confirmation.subjectName}
               </span>
               <span className="text-sm text-slate-600">
                 Запись добавлена в «Транзакции» как отдельная проводка и зафиксирована в «Журнале
@@ -349,7 +420,7 @@ export default function AdjustmentsPage() {
             setSearch(v)
             setPage(1)
           }}
-          placeholder="Поиск по компании, ИНН, причине или администратору"
+          placeholder="Поиск по компании, физлицу, ИНН, ПИНФЛ, причине или администратору"
           filtersActive={showFilters || filtersActive}
           onToggleFilters={() => setShowFilters((v) => !v)}
         />
@@ -431,15 +502,15 @@ export default function AdjustmentsPage() {
         maxWidth="max-w-xl"
       >
         <div className="flex flex-col gap-4 px-6 py-5">
-          <CompanyPicker
-            value={fCompany}
-            onChange={setFCompany}
-            invalid={touched && companyInvalid}
+          <SubjectPicker
+            value={fSubject}
+            onChange={setFSubject}
+            invalid={touched && subjectInvalid}
           />
 
-          {fCompany && (
+          {fSubject && (
             <p className="-mt-2 text-sm text-gray-500">
-              Текущий баланс: <b className="font-semibold text-slate-800">{formatSum(fCompany.balance)}</b>
+              Текущий баланс: <b className="font-semibold text-slate-800">{formatSum(fSubject.balance)}</b>
             </p>
           )}
 

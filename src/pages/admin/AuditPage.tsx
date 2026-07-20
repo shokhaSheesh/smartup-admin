@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Download, Eye, Lock, ShieldX, UserCheck, Activity } from 'lucide-react'
 import { PageCard, PageHeader, Field } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
@@ -8,16 +7,13 @@ import { Pagination, paginate, PAGE_SIZES } from '@/components/ui/Pagination'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { StatCard } from '@/components/ui/StatCard'
 import { AuditResultBadge } from '@/components/ui/StatusBadge'
 import { adminUsers, auditLog } from '@/data/mock'
 import type { AuditEntry } from '@/types/admin'
 import { auditResultLabel } from '@/types/labels'
 import { roleName } from '@/data/roles'
-import { formatDateTime, formatNumber } from '@/lib/format'
+import { formatDateTime, formatInn, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
-
-const DAY = 86_400_000
 
 const ADMIN_OPTIONS = [
   { value: 'all', label: 'Все администраторы' },
@@ -34,12 +30,7 @@ const ACTION_OPTIONS = [
 const TARGET_TYPE_LABEL: Record<AuditEntry['targetType'], string> = {
   Company: 'Компания',
   User: 'Пользователь',
-  Document: 'Документ',
-  Plan: 'Тарифный план',
-  Balance: 'Баланс',
-  Role: 'Роль',
-  Admin: 'Администратор',
-  Session: 'Сессия',
+  Plan: 'Тарификация',
 }
 
 const TARGET_TYPE_OPTIONS = [
@@ -57,43 +48,6 @@ const RESULT_OPTIONS = [
 ]
 
 /** Builds and downloads a CSV of the current result set. */
-function exportCsv(entries: AuditEntry[]) {
-  const header = [
-    'Время',
-    'Администратор',
-    'Роль',
-    'Действие',
-    'Тип объекта',
-    'Объект',
-    'IP',
-    'Результат',
-    'Детали',
-  ]
-  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
-  const lines = entries.map((e) =>
-    [
-      formatDateTime(e.createdAt),
-      e.adminName,
-      roleName(e.adminRole),
-      e.action,
-      TARGET_TYPE_LABEL[e.targetType],
-      e.target,
-      e.ip,
-      auditResultLabel[e.result],
-      e.details,
-    ]
-      .map(escape)
-      .join(';'),
-  )
-  const csv = `﻿${[header.map(escape).join(';'), ...lines].join('\n')}`
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'audit-log.csv'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 export default function AuditPage() {
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -118,17 +72,6 @@ export default function AuditPage() {
     ip.trim() !== '' ||
     dateFrom !== '' ||
     dateTo !== ''
-
-  const kpi = useMemo(() => {
-    const since = Date.now() - DAY
-    return {
-      last24h: auditLog.filter((e) => +new Date(e.createdAt) >= since).length,
-      contentViews: auditLog.filter((e) => e.action === 'Просмотр содержимого документа')
-        .length,
-      denied: auditLog.filter((e) => e.result === 'denied').length,
-      activeAdmins: adminUsers.filter((a) => a.status === 'active').length,
-    }
-  }, [])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -226,7 +169,11 @@ export default function AuditPage() {
     {
       key: 'target',
       header: 'Объект',
-      cell: (e) => <span className="text-sm whitespace-nowrap text-gray-900">{e.target}</span>,
+      cell: (e) => (
+        <span className="text-sm whitespace-nowrap text-gray-900">
+          {e.targetType === 'Company' ? `ИНН ${formatInn(e.target)}` : e.target}
+        </span>
+      ),
     },
     {
       key: 'ip',
@@ -256,51 +203,6 @@ export default function AuditPage() {
         subtitle={`${formatNumber(auditLog.length)} записей о действиях администраторов`}
       />
 
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <StatCard
-          value={formatNumber(kpi.last24h)}
-          label="Событий за 24 часа"
-          icon={Activity}
-          iconBg="bg-blue-50"
-          iconColor="text-Smart-blue"
-        />
-        <StatCard
-          value={formatNumber(kpi.contentViews)}
-          label="Просмотров содержимого документов"
-          icon={Eye}
-          iconBg="bg-amber-50"
-          iconColor="text-yellow-500"
-        />
-        <StatCard
-          value={formatNumber(kpi.denied)}
-          label="Отказов в доступе"
-          icon={ShieldX}
-          iconBg="bg-red-50"
-          iconColor="text-red-600"
-        />
-        <StatCard
-          value={formatNumber(kpi.activeAdmins)}
-          label="Активных администраторов"
-          icon={UserCheck}
-          iconBg="bg-green-50"
-          iconColor="text-emerald-600"
-        />
-      </div>
-
-      {/* -------------------------------------------------- immutability notice */}
-      <div className="flex items-start gap-3 rounded-xl border border-Smart-blue/30 bg-Smart-blue/5 px-4 py-3.5">
-        <Lock className="mt-0.5 size-5 shrink-0 text-Smart-blue" />
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-semibold text-slate-800">
-            Журнал только на добавление и неизменяем
-          </span>
-          <span className="text-sm text-slate-600">
-            Записи нельзя отредактировать или удалить — ни через интерфейс, ни через API.
-            Журнал хранится не менее 1 года и доступен только для чтения и экспорта.
-          </span>
-        </div>
-      </div>
-
       <PageCard>
         <Toolbar
           search={search}
@@ -308,16 +210,7 @@ export default function AuditPage() {
           placeholder="Поиск по администратору, действию, объекту или IP"
           filtersActive={showFilters || filtersActive}
           onToggleFilters={() => setShowFilters((v) => !v)}
-        >
-          <button
-            type="button"
-            onClick={() => exportCsv(filtered)}
-            className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition hover:bg-gray-50"
-          >
-            <Download className="size-5 text-gray-500" />
-            Экспорт CSV
-          </button>
-        </Toolbar>
+        />
 
         {showFilters && (
           <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-3">
@@ -425,13 +318,6 @@ export default function AuditPage() {
               <p className="rounded-lg bg-gray-50 px-3.5 py-2.5 text-sm text-slate-800">
                 {detail.details}
               </p>
-            </div>
-
-            <div className="flex items-start gap-2 rounded-lg bg-gray-50 px-3.5 py-2.5">
-              <Lock className="mt-0.5 size-4 shrink-0 text-gray-400" />
-              <span className="text-sm text-gray-500">
-                Запись неизменяема. Редактирование и удаление недоступны.
-              </span>
             </div>
           </div>
         )}

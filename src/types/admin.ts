@@ -255,12 +255,17 @@ export type Payment = {
   rawResponse: string
 }
 
+/** A balance adjustment applies to a company or to an individual. */
+export type AdjustmentSubject = 'company' | 'individual'
+
 export type Adjustment = {
   id: string
   createdAt: string
-  companyId: string
-  companyInn: string
-  companyName: string
+  subjectType: AdjustmentSubject
+  subjectId: string
+  subjectName: string
+  /** ИНН for a company, ПИНФЛ for an individual. */
+  subjectTaxId: string
   direction: 'credit' | 'debit'
   amount: number
   reason: string
@@ -314,15 +319,7 @@ export type AuditEntry = {
   adminName: string
   adminRole: AdminRole
   action: string
-  targetType:
-    | 'Company'
-    | 'User'
-    | 'Document'
-    | 'Plan'
-    | 'Balance'
-    | 'Role'
-    | 'Admin'
-    | 'Session'
+  targetType: 'Company' | 'User' | 'Plan'
   target: string
   ip: string
   result: AuditResult

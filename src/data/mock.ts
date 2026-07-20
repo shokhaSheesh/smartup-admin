@@ -715,15 +715,21 @@ const ADJ_REASONS = [
 ]
 
 export const adjustments: Adjustment[] = Array.from({ length: 46 }, (_, i) => {
-  const c = companies[int(0, companies.length - 1)]
   const reason = pick(ADJ_REASONS)
   const direction = reason.startsWith('Исправление') && chance(0.5) ? 'debit' : 'credit'
+
+  // Individuals hold their own balance, so they get adjusted too.
+  const toIndividual = chance(0.35)
+  const individual = individuals[int(0, individuals.length - 1)]
+  const c = companies[int(0, companies.length - 1)]
+
   return {
     id: `adj-${i + 1}`,
     createdAt: daysAgo(int(0, 150)),
-    companyId: c.id,
-    companyInn: c.inn,
-    companyName: c.name,
+    subjectType: toIndividual ? ('individual' as const) : ('company' as const),
+    subjectId: toIndividual ? individual.id : c.id,
+    subjectName: toIndividual ? individual.fullName : c.name,
+    subjectTaxId: toIndividual ? individual.pinfl : c.inn,
     direction,
     amount: pick([50_000, 100_000, 150_000, 300_000, 500_000]),
     reason,
@@ -785,37 +791,66 @@ const AUDIT_ACTIONS: Array<{
   action: string
   targetType: AuditEntry['targetType']
 }> = [
-  { action: 'Вход в систему', targetType: 'Session' },
-  { action: 'Неудачная попытка входа', targetType: 'Session' },
-
-  { action: 'Просмотр содержимого документа', targetType: 'Document' },
-  { action: 'Экспорт реестра документов', targetType: 'Document' },
-
-  { action: 'Изменение тарифа компании', targetType: 'Company' },
+  // Company tariff and status
+  { action: 'Изменение тарифного плана компании', targetType: 'Company' },
+  { action: 'Продление срока подписки', targetType: 'Company' },
   { action: 'Приостановка компании', targetType: 'Company' },
   { action: 'Активация компании', targetType: 'Company' },
-  { action: 'Отмена подписки', targetType: 'Company' },
 
-  { action: 'Корректировка баланса компании', targetType: 'Balance' },
-  { action: 'Корректировка баланса пользователя', targetType: 'Balance' },
-
+  // User status
   { action: 'Блокировка пользователя', targetType: 'User' },
   { action: 'Разблокировка пользователя', targetType: 'User' },
 
+  // Tariff plans
   { action: 'Создание тарифного плана', targetType: 'Plan' },
   { action: 'Изменение тарифного плана', targetType: 'Plan' },
-  { action: 'Архивирование тарифного плана', targetType: 'Plan' },
+  { action: 'Удаление тарифного плана', targetType: 'Plan' },
+
+  // Pricing tiers and the free allowance
+  { action: 'Добавление ценового уровня', targetType: 'Plan' },
   { action: 'Изменение ценового уровня', targetType: 'Plan' },
+  { action: 'Удаление ценового уровня', targetType: 'Plan' },
   { action: 'Изменение бесплатного лимита', targetType: 'Plan' },
 
-  { action: 'Создание роли', targetType: 'Role' },
-  { action: 'Изменение прав роли', targetType: 'Role' },
-  { action: 'Удаление роли', targetType: 'Role' },
-
-  { action: 'Приглашение администратора', targetType: 'Admin' },
-  { action: 'Изменение администратора', targetType: 'Admin' },
-  { action: 'Удаление администратора', targetType: 'Admin' },
+  // Subscriptions
+  { action: 'Отмена подписки', targetType: 'Company' },
 ]
+
+/** What actually changed — the object itself is already its own column. */
+function auditDetails(action: string, companyName: string): string {
+  switch (action) {
+    case 'Изменение тарифного плана компании':
+      return `${companyName}: план изменён на «${pick(plans).name}»`
+    case 'Продление срока подписки':
+      return `${companyName}: срок продлён на ${pick([30, 90, 365])} дн.`
+    case 'Приостановка компании':
+      return `${companyName}: ${pick(['задолженность по оплате', 'проверка по запросу налоговой'])}`
+    case 'Активация компании':
+      return `${companyName}: задолженность погашена`
+    case 'Отмена подписки':
+      return `${companyName}: подписка отменена до конца периода`
+    case 'Блокировка пользователя':
+      return 'Доступ к платформе закрыт'
+    case 'Разблокировка пользователя':
+      return 'Доступ к платформе восстановлен'
+    case 'Создание тарифного плана':
+      return 'Новый план добавлен в тарифную сетку'
+    case 'Изменение тарифного плана':
+      return `Изменено: ${pick(['квота документов', 'цена за период', 'длительность', 'цена сверх квоты'])}`
+    case 'Удаление тарифного плана':
+      return 'План удалён, действующие подписки сохранены'
+    case 'Добавление ценового уровня':
+      return 'Добавлен новый объёмный уровень'
+    case 'Изменение ценового уровня':
+      return `Цена за документ изменена на ${pick([250, 300, 350, 500])} сум`
+    case 'Удаление ценового уровня':
+      return 'Уровень удалён, объём перешёл к соседнему'
+    case 'Изменение бесплатного лимита':
+      return `Лимит изменён на ${pick([10, 15, 20, 25])} док.`
+    default:
+      return '—'
+  }
+}
 
 export const auditLog: AuditEntry[] = Array.from({ length: 180 }, (_, i): AuditEntry => {
   const admin = pick(adminUsers)
@@ -823,20 +858,17 @@ export const auditLog: AuditEntry[] = Array.from({ length: 180 }, (_, i): AuditE
   const failed = entry.action === 'Неудачная попытка входа'
   const denied = failed || chance(0.04)
   const c = companies[int(0, companies.length - 1)]
-  const d = documents[int(0, documents.length - 1)]
 
   const target =
-    entry.targetType === 'Document'
-      ? d.number
-      : entry.targetType === 'Session'
-        ? admin.email
-        : entry.targetType === 'Plan'
-          ? pick(plans).name
-          : entry.targetType === 'Role'
-            ? pick(['Супер-админ', 'Поддержка', 'Финансы', 'Аналитик'])
-            : entry.targetType === 'Admin'
-              ? pick(adminUsers).fullName
-              : c.inn
+    entry.targetType === 'Plan'
+      ? entry.action.includes('уровня')
+        ? pick(priceTiers).name
+        : entry.action.includes('лимита')
+          ? 'Бесплатный лимит'
+          : pick(plans).name
+      : entry.targetType === 'User'
+        ? pick(platformUsers).fullName
+        : c.inn
 
   return {
     id: `aud-${i + 1}`,
@@ -848,12 +880,7 @@ export const auditLog: AuditEntry[] = Array.from({ length: 180 }, (_, i): AuditE
     target,
     ip: `${int(84, 213)}.${int(0, 255)}.${int(0, 255)}.${int(1, 254)}`,
     result: denied ? 'denied' : 'success',
-    details:
-      entry.targetType === 'Document'
-        ? `Документ ${d.number}, ${d.type}`
-        : entry.targetType === 'Balance'
-          ? 'Изменение баланса с указанием причины'
-          : `Объект: ${target}`,
+    details: auditDetails(entry.action, c.name),
   }
 }).sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
 
