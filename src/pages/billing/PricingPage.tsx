@@ -167,6 +167,30 @@ export default function PricingPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageCard>
+        <PageHeader
+          title="Тарификация за документ"
+          actions={
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex shrink-0 items-center gap-2 rounded-lg bg-Smart-green px-4 py-2.5 text-base font-semibold text-white shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition hover:brightness-105"
+            >
+              <Plus className="size-5" />
+              Добавить уровень
+            </button>
+          }
+        />
+
+        <DataTable
+          columns={columns}
+          rows={sortedTiers}
+          rowKey={(t) => t.id}
+          onRowClick={(t) => openEdit(t)}
+          emptyMessage="Уровни не найдены"
+        />
+      </PageCard>
+
       <FormCard
         title="Бесплатный лимит"
         action={
@@ -210,30 +234,6 @@ export default function PricingPage() {
           />
         </div>
       </FormCard>
-
-      <PageCard>
-        <PageHeader
-          title="Тарификация за документ"
-          actions={
-            <button
-              type="button"
-              onClick={openCreate}
-              className="flex shrink-0 items-center gap-2 rounded-lg bg-Smart-green px-4 py-2.5 text-base font-semibold text-white shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition hover:brightness-105"
-            >
-              <Plus className="size-5" />
-              Добавить уровень
-            </button>
-          }
-        />
-
-        <DataTable
-          columns={columns}
-          rows={sortedTiers}
-          rowKey={(t) => t.id}
-          onRowClick={(t) => openEdit(t)}
-          emptyMessage="Уровни не найдены"
-        />
-      </PageCard>
 
       <Modal
         open={formOpen}
