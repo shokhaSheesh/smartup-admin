@@ -98,11 +98,21 @@ export function ProviderPaymentsTab() {
     {
       key: 'provider',
       header: 'Провайдер',
-      cell: (p) => (
-        <span className="text-sm font-medium whitespace-nowrap text-slate-800">
-          {p.provider}
-        </span>
-      ),
+      cell: (p) => {
+        const tail = cardTail(p.cardMask)
+        return (
+          <div className="flex flex-col">
+            <span className="text-sm font-medium whitespace-nowrap text-slate-800">
+              {p.provider}
+            </span>
+            {tail && (
+              <span className="font-mono text-xs whitespace-nowrap text-gray-500">
+                •••• {tail}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     {
       key: 'company',
@@ -123,20 +133,6 @@ export function ProviderPaymentsTab() {
           {formatMoney(p.amount)}
         </span>
       ),
-    },
-    {
-      key: 'card',
-      header: 'Карта',
-      cell: (p) => {
-        const tail = cardTail(p.cardMask)
-        return tail ? (
-          <span className="font-mono text-sm whitespace-nowrap text-gray-900">
-            •••• {tail}
-          </span>
-        ) : (
-          <span className="text-sm text-gray-400">—</span>
-        )
-      },
     },
     {
       key: 'status',
