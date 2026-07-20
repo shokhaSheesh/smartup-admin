@@ -96,7 +96,6 @@ export const paymentMethodLabel: Record<PaymentMethod, string> = {
 }
 
 export const paymentStatusLabel: Record<PaymentStatus, string> = {
-  pending: 'В обработке',
   success: 'Успешно',
   failed: 'Ошибка',
 }

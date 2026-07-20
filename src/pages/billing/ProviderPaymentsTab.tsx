@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import type { Payment, PaymentStatus } from '@/types/admin'
 import { PAYMENT_PROVIDERS } from '@/types/admin'
 import { payments } from '@/data/mock'
@@ -70,7 +70,6 @@ export function ProviderPaymentsTab() {
   const stats = useMemo(
     () => ({
       success: filtered.filter((p) => p.status === 'success').length,
-      pending: filtered.filter((p) => p.status === 'pending').length,
       failed: filtered.filter((p) => p.status === 'failed').length,
     }),
     [filtered],
@@ -118,15 +117,6 @@ export function ProviderPaymentsTab() {
       ),
     },
     {
-      key: 'ref',
-      header: 'Ссылка провайдера',
-      cell: (p) => (
-        <span className="font-mono text-xs whitespace-nowrap text-gray-600">
-          {p.providerRef}
-        </span>
-      ),
-    },
-    {
       key: 'status',
       header: 'Статус',
       cell: (p) => <PaymentStatusBadge status={p.status} />,
@@ -159,13 +149,6 @@ export function ProviderPaymentsTab() {
           icon={CheckCircle2}
           iconBg="bg-green-100"
           iconColor="text-emerald-600"
-        />
-        <StatCard
-          value={formatNumber(stats.pending)}
-          label="В обработке"
-          icon={Clock}
-          iconBg="bg-amber-50"
-          iconColor="text-amber-500"
         />
         <StatCard
           value={formatNumber(stats.failed)}

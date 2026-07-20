@@ -595,9 +595,6 @@ function providerPayload(args: {
       2,
     )
   }
-  if (args.status === 'pending') {
-    return JSON.stringify({ ...base, state: 1, perform_time: null, error: null }, null, 2)
-  }
   const err = pick(PROVIDER_ERRORS)
   return JSON.stringify(
     { ...base, state: -1, perform_time: null, error: { code: err.code, message: err.message, data: null } },
@@ -608,7 +605,7 @@ function providerPayload(args: {
 
 export const payments: Payment[] = Array.from({ length: 140 }, (_, i) => {
   const c = companies[int(0, companies.length - 1)]
-  const status: PaymentStatus = chance(0.14) ? 'failed' : chance(0.08) ? 'pending' : 'success'
+  const status: PaymentStatus = chance(0.16) ? 'failed' : 'success'
   const method = chance(0.65) ? 'card' : chance(0.5) ? 'bank_transfer' : 'manual'
   // A manual top-up is keyed in by an admin, so no provider is involved.
   const provider = method === 'manual' ? null : pick(PAYMENT_PROVIDERS)

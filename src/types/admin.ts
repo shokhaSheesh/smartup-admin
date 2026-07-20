@@ -15,7 +15,7 @@ export type TxType =
   | 'manual_adjustment'
   | 'subscription_payment'
 export type PaymentMethod = 'card' | 'bank_transfer' | 'manual'
-export type PaymentStatus = 'pending' | 'success' | 'failed'
+export type PaymentStatus = 'success' | 'failed'
 export type AdjustmentCategory =
   | 'compensation'
   | 'refund'

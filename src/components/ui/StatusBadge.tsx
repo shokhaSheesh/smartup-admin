@@ -66,7 +66,6 @@ const userKindStyles: Record<UserKind, string> = {
 }
 
 const paymentStyles: Record<PaymentStatus, string> = {
-  pending: 'bg-amber-50 text-amber-500',
   success: 'bg-green-100 text-emerald-600',
   failed: 'bg-red-100 text-red-600',
 }
