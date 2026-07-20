@@ -22,6 +22,13 @@ const PROVIDER_OPTIONS = [
   ...PAYMENT_PROVIDERS.map((p) => ({ value: p, label: p })),
 ]
 
+/** Last four digits only — the rest of the PAN is never useful here. */
+function cardTail(mask: string | null): string | null {
+  if (!mask) return null
+  const digits = mask.replace(/\D/g, '')
+  return digits.length >= 4 ? digits.slice(-4) : null
+}
+
 const STATUS_OPTIONS = [
   { value: ANY, label: 'Любой статус' },
   ...(Object.keys(paymentStatusLabel) as PaymentStatus[]).map((s) => ({
@@ -62,7 +69,8 @@ export function ProviderPaymentsTab() {
       return (
         p.providerRef.toLowerCase().includes(q) ||
         p.companyName.toLowerCase().includes(q) ||
-        p.companyInn.includes(q)
+        p.companyInn.includes(q) ||
+        (cardTail(p.cardMask)?.includes(q) ?? false)
       )
     })
   }, [providerPayments, search, provider, status])
@@ -117,6 +125,20 @@ export function ProviderPaymentsTab() {
       ),
     },
     {
+      key: 'card',
+      header: 'Карта',
+      cell: (p) => {
+        const tail = cardTail(p.cardMask)
+        return tail ? (
+          <span className="font-mono text-sm whitespace-nowrap text-gray-900">
+            •••• {tail}
+          </span>
+        ) : (
+          <span className="text-sm text-gray-400">—</span>
+        )
+      },
+    },
+    {
       key: 'status',
       header: 'Статус',
       cell: (p) => <PaymentStatusBadge status={p.status} />,
@@ -166,7 +188,7 @@ export function ProviderPaymentsTab() {
             setSearch(v)
             setPage(1)
           }}
-          placeholder="Поиск по ссылке провайдера, компании или ИНН"
+          placeholder="Поиск по компании, ИНН, ссылке провайдера или последним 4 цифрам карты"
           filtersActive={showFilters || provider !== ANY || status !== ANY}
           onToggleFilters={() => setShowFilters((v) => !v)}
         />
@@ -219,7 +241,7 @@ export function ProviderPaymentsTab() {
       >
         {inspected && (
           <div className="flex flex-col gap-4 px-6 py-5">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
               <div className="flex flex-col gap-0.5">
                 <span className="text-xs text-gray-500">Провайдер</span>
                 <span className="text-sm font-medium text-slate-800">
@@ -236,6 +258,12 @@ export function ProviderPaymentsTab() {
                 <span className="text-xs text-gray-500">Время</span>
                 <span className="text-sm text-slate-800">
                   {formatDateTime(inspected.createdAt)}
+                </span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs text-gray-500">Карта</span>
+                <span className="font-mono text-sm text-slate-800">
+                  {cardTail(inspected.cardMask) ? `•••• ${cardTail(inspected.cardMask)}` : '—'}
                 </span>
               </div>
               <div className="flex flex-col gap-0.5">
