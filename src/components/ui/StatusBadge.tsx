@@ -8,7 +8,6 @@ import type {
   UserStatus,
   UserKind,
   PaymentStatus,
-  AuditResult,
 } from '@/types/admin'
 import {
   tenantStatusLabel,
@@ -19,7 +18,6 @@ import {
   userStatusLabel,
   userKindLabel,
   paymentStatusLabel,
-  auditResultLabel,
 } from '@/types/labels'
 
 const base = 'inline-flex items-center rounded-md px-3 py-1 text-sm font-medium'
@@ -70,11 +68,6 @@ const paymentStyles: Record<PaymentStatus, string> = {
   failed: 'bg-red-100 text-red-600',
 }
 
-const auditStyles: Record<AuditResult, string> = {
-  success: 'bg-green-100 text-emerald-600',
-  denied: 'bg-red-100 text-red-600',
-}
-
 export function TenantStatusBadge({ status }: { status: TenantStatus }) {
   return <span className={cn(base, tenantStyles[status])}>{tenantStatusLabel[status]}</span>
 }
@@ -116,6 +109,3 @@ export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
   return <span className={cn(base, paymentStyles[status])}>{paymentStatusLabel[status]}</span>
 }
 
-export function AuditResultBadge({ result }: { result: AuditResult }) {
-  return <span className={cn(base, auditStyles[result])}>{auditResultLabel[result]}</span>
-}

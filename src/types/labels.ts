@@ -12,7 +12,6 @@ import type {
   TxType,
   PaymentMethod,
   PaymentStatus,
-  AuditResult,
 } from './admin'
 
 export const tenantStatusLabel: Record<TenantStatus, string> = {
@@ -90,10 +89,5 @@ export const paymentMethodLabel: Record<PaymentMethod, string> = {
 export const paymentStatusLabel: Record<PaymentStatus, string> = {
   success: 'Успешно',
   failed: 'Ошибка',
-}
-
-export const auditResultLabel: Record<AuditResult, string> = {
-  success: 'Успешно',
-  denied: 'Отказано',
 }
 

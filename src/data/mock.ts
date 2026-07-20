@@ -7,6 +7,7 @@ import type {
   AdminDocument,
   AdminUser,
   Adjustment,
+  AuditChange,
   AuditEntry,
   BalanceAccount,
   BillingMode,
@@ -816,37 +817,109 @@ const AUDIT_ACTIONS: Array<{
   { action: 'Отмена подписки', targetType: 'Company' },
 ]
 
-/** What actually changed — the object itself is already its own column. */
+/** Money formatted the way the UI shows it, for audit before/after values. */
+const asSum = (n: number) => `${n.toLocaleString('ru-RU')} сум`
+
+/**
+ * What the action changed, as before → after. Actions that alter no value
+ * (blocking, deleting) return an empty list and rely on the details line.
+ */
+function auditChanges(action: string): AuditChange[] {
+  switch (action) {
+    case 'Изменение тарифного плана компании': {
+      const [before, after] = pick([
+        ['Старт', 'Бизнес'],
+        ['Бизнес', 'Корпоративный'],
+        ['Корпоративный', 'Корпоративный (год)'],
+        ['Бизнес', 'Старт'],
+      ])
+      return [{ field: 'Тарифный план', before, after }]
+    }
+    case 'Продление срока подписки': {
+      const days = pick([30, 90, 365])
+      const from = daysAhead(int(1, 20))
+      return [
+        {
+          field: 'Действует до',
+          before: new Date(from).toLocaleDateString('ru-RU'),
+          after: new Date(
+            new Date(from).getTime() + days * DAY,
+          ).toLocaleDateString('ru-RU'),
+        },
+      ]
+    }
+    case 'Приостановка компании':
+      return [{ field: 'Статус', before: 'Активна', after: 'Приостановлена' }]
+    case 'Активация компании':
+      return [{ field: 'Статус', before: 'Приостановлена', after: 'Активна' }]
+    case 'Отмена подписки':
+      return [{ field: 'Статус подписки', before: 'Активна', after: 'Отменена' }]
+
+    case 'Блокировка пользователя':
+      return [{ field: 'Статус', before: 'Активен', after: 'Заблокирован' }]
+    case 'Разблокировка пользователя':
+      return [{ field: 'Статус', before: 'Заблокирован', after: 'Активен' }]
+
+    case 'Изменение тарифного плана': {
+      const variant = pick(['price', 'quota', 'duration', 'overage'])
+      if (variant === 'price') {
+        const before = pick([150_000, 450_000, 567_000, 1_800_000])
+        return [{ field: 'Цена за период', before: asSum(before), after: asSum(before + 1_000) }]
+      }
+      if (variant === 'quota') {
+        const before = pick([300, 1_500, 10_000])
+        return [
+          {
+            field: 'Квота документов',
+            before: before.toLocaleString('ru-RU'),
+            after: (before + 500).toLocaleString('ru-RU'),
+          },
+        ]
+      }
+      if (variant === 'duration') {
+        return [{ field: 'Длительность', before: '30 дн.', after: pick(['60 дн.', '90 дн.']) }]
+      }
+      const before = pick([240, 320, 450])
+      return [
+        { field: 'Цена сверх квоты', before: asSum(before), after: asSum(before - 20) },
+      ]
+    }
+
+    case 'Изменение ценового уровня': {
+      const before = pick([250, 300, 350, 500])
+      return [{ field: 'Цена за документ', before: asSum(before), after: asSum(before - 25) }]
+    }
+    case 'Изменение бесплатного лимита': {
+      const before = pick([10, 15, 20])
+      return [
+        {
+          field: 'Документов бесплатно',
+          before: `${before} док.`,
+          after: `${before + 5} док.`,
+        },
+      ]
+    }
+
+    default:
+      return []
+  }
+}
+
+/** One-line summary for actions that do not move a value. */
 function auditDetails(action: string, companyName: string): string {
   switch (action) {
-    case 'Изменение тарифного плана компании':
-      return `${companyName}: план изменён на «${pick(plans).name}»`
-    case 'Продление срока подписки':
-      return `${companyName}: срок продлён на ${pick([30, 90, 365])} дн.`
-    case 'Приостановка компании':
-      return `${companyName}: ${pick(['задолженность по оплате', 'проверка по запросу налоговой'])}`
-    case 'Активация компании':
-      return `${companyName}: задолженность погашена`
-    case 'Отмена подписки':
-      return `${companyName}: подписка отменена до конца периода`
-    case 'Блокировка пользователя':
-      return 'Доступ к платформе закрыт'
-    case 'Разблокировка пользователя':
-      return 'Доступ к платформе восстановлен'
     case 'Создание тарифного плана':
       return 'Новый план добавлен в тарифную сетку'
-    case 'Изменение тарифного плана':
-      return `Изменено: ${pick(['квота документов', 'цена за период', 'длительность', 'цена сверх квоты'])}`
     case 'Удаление тарифного плана':
       return 'План удалён, действующие подписки сохранены'
     case 'Добавление ценового уровня':
       return 'Добавлен новый объёмный уровень'
-    case 'Изменение ценового уровня':
-      return `Цена за документ изменена на ${pick([250, 300, 350, 500])} сум`
     case 'Удаление ценового уровня':
       return 'Уровень удалён, объём перешёл к соседнему'
-    case 'Изменение бесплатного лимита':
-      return `Лимит изменён на ${pick([10, 15, 20, 25])} док.`
+    case 'Приостановка компании':
+      return `${companyName}: ${pick(['задолженность по оплате', 'проверка по запросу налоговой'])}`
+    case 'Отмена подписки':
+      return `${companyName}: до конца оплаченного периода`
     default:
       return '—'
   }
@@ -855,8 +928,6 @@ function auditDetails(action: string, companyName: string): string {
 export const auditLog: AuditEntry[] = Array.from({ length: 180 }, (_, i): AuditEntry => {
   const admin = pick(adminUsers)
   const entry = pick(AUDIT_ACTIONS)
-  const failed = entry.action === 'Неудачная попытка входа'
-  const denied = failed || chance(0.04)
   const c = companies[int(0, companies.length - 1)]
 
   const target =
@@ -878,8 +949,7 @@ export const auditLog: AuditEntry[] = Array.from({ length: 180 }, (_, i): AuditE
     action: entry.action,
     targetType: entry.targetType,
     target,
-    ip: `${int(84, 213)}.${int(0, 255)}.${int(0, 255)}.${int(1, 254)}`,
-    result: denied ? 'denied' : 'success',
+    changes: auditChanges(entry.action),
     details: auditDetails(entry.action, c.name),
   }
 }).sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))

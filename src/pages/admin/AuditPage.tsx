@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ArrowRight } from 'lucide-react'
 import { PageCard, PageHeader, Field } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
@@ -7,10 +8,8 @@ import { Pagination, paginate, PAGE_SIZES } from '@/components/ui/Pagination'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { AuditResultBadge } from '@/components/ui/StatusBadge'
 import { adminUsers, auditLog } from '@/data/mock'
 import type { AuditEntry } from '@/types/admin'
-import { auditResultLabel } from '@/types/labels'
 import { roleName } from '@/data/roles'
 import { formatDateTime, formatInn, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
@@ -41,12 +40,6 @@ const TARGET_TYPE_OPTIONS = [
   })),
 ]
 
-const RESULT_OPTIONS = [
-  { value: 'all', label: 'Любой результат' },
-  { value: 'success', label: auditResultLabel.success },
-  { value: 'denied', label: auditResultLabel.denied },
-]
-
 /** Builds and downloads a CSV of the current result set. */
 export default function AuditPage() {
   const [search, setSearch] = useState('')
@@ -54,8 +47,6 @@ export default function AuditPage() {
   const [admin, setAdmin] = useState('all')
   const [action, setAction] = useState('all')
   const [targetType, setTargetType] = useState('all')
-  const [result, setResult] = useState('all')
-  const [ip, setIp] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
@@ -68,14 +59,11 @@ export default function AuditPage() {
     admin !== 'all' ||
     action !== 'all' ||
     targetType !== 'all' ||
-    result !== 'all' ||
-    ip.trim() !== '' ||
     dateFrom !== '' ||
     dateTo !== ''
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const ipQuery = ip.trim()
     const from = dateFrom ? +new Date(`${dateFrom}T00:00:00`) : null
     const to = dateTo ? +new Date(`${dateTo}T23:59:59`) : null
 
@@ -84,8 +72,6 @@ export default function AuditPage() {
         if (admin !== 'all' && e.adminName !== admin) return false
         if (action !== 'all' && e.action !== action) return false
         if (targetType !== 'all' && e.targetType !== targetType) return false
-        if (result !== 'all' && e.result !== result) return false
-        if (ipQuery && !e.ip.includes(ipQuery)) return false
         const ts = +new Date(e.createdAt)
         if (from !== null && ts < from) return false
         if (to !== null && ts > to) return false
@@ -95,11 +81,11 @@ export default function AuditPage() {
           e.action.toLowerCase().includes(q) ||
           e.target.toLowerCase().includes(q) ||
           e.details.toLowerCase().includes(q) ||
-          e.ip.includes(q)
+          e.details.toLowerCase().includes(q)
         )
       })
       .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
-  }, [search, admin, action, targetType, result, ip, dateFrom, dateTo])
+  }, [search, admin, action, targetType, dateFrom, dateTo])
 
   const rows = paginate(filtered, page, pageSize)
 
@@ -114,8 +100,6 @@ export default function AuditPage() {
     setAdmin('all')
     setAction('all')
     setTargetType('all')
-    setResult('all')
-    setIp('')
     setDateFrom('')
     setDateTo('')
     setPage(1)
@@ -176,14 +160,23 @@ export default function AuditPage() {
       ),
     },
     {
-      key: 'ip',
-      header: 'IP',
-      cell: (e) => <span className="text-sm whitespace-nowrap text-gray-600">{e.ip}</span>,
-    },
-    {
-      key: 'result',
-      header: 'Результат',
-      cell: (e) => <AuditResultBadge result={e.result} />,
+      key: 'change',
+      header: 'Изменение',
+      cell: (e) =>
+        e.changes.length === 0 ? (
+          <span className="text-sm text-gray-400">—</span>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {e.changes.map((c) => (
+              <span key={c.field} className="flex items-center gap-1.5 text-sm whitespace-nowrap">
+                <span className="text-gray-500 line-through">{c.before}</span>
+                <ArrowRight className="size-3.5 shrink-0 text-gray-400" />
+                <span className="font-medium text-slate-800">{c.after}</span>
+              </span>
+            ))}
+            <span className="text-xs text-gray-500">{e.changes[0].field}</span>
+          </div>
+        ),
     },
     {
       key: 'details',
@@ -207,7 +200,7 @@ export default function AuditPage() {
         <Toolbar
           search={search}
           onSearchChange={resetPage(setSearch)}
-          placeholder="Поиск по администратору, действию, объекту или IP"
+          placeholder="Поиск по администратору, действию или объекту"
           filtersActive={showFilters || filtersActive}
           onToggleFilters={() => setShowFilters((v) => !v)}
         />
@@ -243,18 +236,6 @@ export default function AuditPage() {
               type="date"
               value={dateTo}
               onChange={(e) => resetPage(setDateTo)(e.target.value)}
-            />
-            <Input
-              label="IP-адрес"
-              value={ip}
-              placeholder="84.54."
-              onChange={(e) => resetPage(setIp)(e.target.value)}
-            />
-            <Select
-              label="Результат"
-              options={RESULT_OPTIONS}
-              value={result}
-              onChange={resetPage(setResult)}
             />
             <div className="flex items-end sm:col-span-2">
               <button
@@ -305,13 +286,41 @@ export default function AuditPage() {
               <Field label="Администратор">{detail.adminName}</Field>
               <Field label="Роль">{roleName(detail.adminRole)}</Field>
               <Field label="Действие">{detail.action}</Field>
-              <Field label="Результат">
-                <AuditResultBadge result={detail.result} />
-              </Field>
               <Field label="Тип объекта">{TARGET_TYPE_LABEL[detail.targetType]}</Field>
               <Field label="Объект">{detail.target}</Field>
-              <Field label="IP-адрес">{detail.ip}</Field>
             </div>
+
+            {detail.changes.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-gray-500">Что изменилось</span>
+                <div className="overflow-hidden rounded-lg border border-gray-200">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-900">
+                          Поле
+                        </th>
+                        <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-900">
+                          Было
+                        </th>
+                        <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-900">
+                          Стало
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detail.changes.map((c) => (
+                        <tr key={c.field} className="border-b border-gray-200 last:border-b-0">
+                          <td className="px-4 py-2 text-slate-800">{c.field}</td>
+                          <td className="px-4 py-2 text-gray-500 line-through">{c.before}</td>
+                          <td className="px-4 py-2 font-medium text-slate-800">{c.after}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col gap-1">
               <span className="text-xs text-gray-500">Детали</span>

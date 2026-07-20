@@ -26,7 +26,6 @@ export type PaymentMethod =
   | 'bank_transfer'
   | 'manual'
 export type PaymentStatus = 'success' | 'failed'
-export type AuditResult = 'success' | 'denied'
 
 /** The 16 document types on the platform. */
 /**
@@ -313,6 +312,13 @@ export type AdminUser = {
   createdAt: string
 }
 
+/** A single field that moved, with its value on either side. */
+export type AuditChange = {
+  field: string
+  before: string
+  after: string
+}
+
 export type AuditEntry = {
   id: string
   createdAt: string
@@ -321,7 +327,7 @@ export type AuditEntry = {
   action: string
   targetType: 'Company' | 'User' | 'Plan'
   target: string
-  ip: string
-  result: AuditResult
+  /** What the change did — empty for actions that alter no value. */
+  changes: AuditChange[]
   details: string
 }
