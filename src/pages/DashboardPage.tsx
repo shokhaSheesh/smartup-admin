@@ -14,7 +14,6 @@ import {
   YAxis,
 } from 'recharts'
 import {
-  AlertTriangle,
   Ban,
   Building2,
   CalendarClock,
@@ -211,7 +210,7 @@ export default function DashboardPage() {
       .reduce((s, p) => s + p.amount, 0)
 
     const mrr = subscriptions
-      .filter((s) => s.status === 'active' || s.status === 'expiring')
+      .filter((s) => s.status === 'active')
       .reduce((sum, s) => {
         // Normalise each plan's price to a 30-day month.
         const plan = plans.find((p) => p.id === s.planId)
@@ -233,32 +232,6 @@ export default function DashboardPage() {
   }, [docsSeries])
 
   const groups = useMemo<AttentionGroup[]>(() => {
-    const byId = new Map(companies.map((c) => [c.id, c]))
-    const balanceOf = (companyId: string) => byId.get(companyId)?.balance ?? 0
-
-    const quotaExhausted = subscriptions
-      .filter((s) => s.status === 'quota_exhausted' && s.overageMode === null)
-      .map<AttentionRow>((s) => ({
-        id: s.id,
-        to: `/tenants/${s.companyId}`,
-        title: s.companyName,
-        meta: `${s.planName} · квота ${formatNumber(s.quotaUsed)}/${formatNumber(s.quotaTotal)}`,
-        value: 'Отправка остановлена',
-        tone: 'danger',
-      }))
-
-    const overageLowBalance = subscriptions
-      .filter((s) => s.overageMode === 'payg' && balanceOf(s.companyId) < 100_000)
-      .sort((a, b) => balanceOf(a.companyId) - balanceOf(b.companyId))
-      .map<AttentionRow>((s) => ({
-        id: `ov-${s.id}`,
-        to: `/tenants/${s.companyId}`,
-        title: s.companyName,
-        meta: `Доплата: ${formatNumber(s.overageDocs)} док. · ${s.planName}`,
-        value: formatSum(balanceOf(s.companyId)),
-        tone: 'danger',
-      }))
-
     const nearQuota = subscriptions
       .filter(
         (s) => s.status === 'active' && percent(s.quotaUsed, s.quotaTotal) > 80,
@@ -337,24 +310,6 @@ export default function DashboardPage() {
 
     return [
       {
-        key: 'quota',
-        title: 'Квота исчерпана, ожидают решения',
-        hint: 'Отправка документов приостановлена — требуется выбор тарифа',
-        icon: AlertTriangle,
-        pill: 'bg-red-500',
-        to: '/billing/subscriptions',
-        rows: quotaExhausted,
-      },
-      {
-        key: 'overage',
-        title: 'На доплате с низким балансом',
-        hint: 'Заблокируются на следующей отправке',
-        icon: Wallet,
-        pill: 'bg-red-500',
-        to: '/billing/topups',
-        rows: overageLowBalance,
-      },
-      {
         key: 'nearquota',
         title: 'Приближаются к квоте',
         hint: 'Использовано более 80% квоты периода',
@@ -375,7 +330,7 @@ export default function DashboardPage() {
       {
         key: 'expiring',
         title: 'Подписки истекают за 7 дней',
-        hint: 'Требуется продление или подтверждение автопродления',
+        hint: 'Требуется продление подписки',
         icon: CalendarClock,
         pill: 'bg-amber-300',
         to: '/billing/subscriptions',

@@ -30,8 +30,6 @@ export const billingModeLabel: Record<BillingMode, string> = {
 
 export const subscriptionStatusLabel: Record<SubscriptionStatus, string> = {
   active: 'Активна',
-  expiring: 'Истекает',
-  quota_exhausted: 'Квота исчерпана',
   expired: 'Истекла',
   cancelled: 'Отменена',
 }

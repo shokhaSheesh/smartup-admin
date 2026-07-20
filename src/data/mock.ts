@@ -277,29 +277,23 @@ companies.forEach((c, i) => {
 
   let status: SubscriptionStatus
   let quotaUsed: number
-  let overageMode: null | 'payg' = null
+  // Past the quota a company keeps sending and pays the plan's overage price,
+  // so exceeding it is a number on an active subscription, not a status.
+  let overageDocs = 0
 
-  if (c.billingMode === 'hybrid') {
-    status = 'quota_exhausted'
-    quotaUsed = plan.docQuota
-    overageMode = 'payg'
-  } else if (chance(0.12)) {
-    status = 'quota_exhausted'
-    quotaUsed = plan.docQuota
-  } else if (periodDays - elapsed <= 7) {
-    status = 'expiring'
-    quotaUsed = int(Math.floor(plan.docQuota * 0.4), plan.docQuota - 1)
-  } else if (chance(0.06)) {
+  if (chance(0.06)) {
     status = 'cancelled'
     quotaUsed = int(0, plan.docQuota)
+  } else if (chance(0.18)) {
+    status = 'active'
+    quotaUsed = plan.docQuota
+    overageDocs = int(5, 400)
   } else {
     status = 'active'
     quotaUsed = chance(0.25)
       ? int(Math.floor(plan.docQuota * 0.82), plan.docQuota - 1)
       : int(0, Math.floor(plan.docQuota * 0.8))
   }
-
-  const overageDocs = overageMode === 'payg' ? int(5, 400) : 0
 
   c.planName = plan.name
 
@@ -317,7 +311,6 @@ companies.forEach((c, i) => {
     quotaUsed,
     autoRenew: chance(0.7),
     amountPaid: plan.price,
-    overageMode,
     overageDocs,
     overageAmount: overageDocs * plan.overagePricePerDoc,
   })
@@ -327,7 +320,7 @@ export const subscriptions = subscriptionList
 
 plans.forEach((p) => {
   p.activeSubscribers = subscriptions.filter(
-    (s) => s.planId === p.id && s.status !== 'cancelled' && s.status !== 'expired',
+    (s) => s.planId === p.id && s.status === 'active',
   ).length
 })
 

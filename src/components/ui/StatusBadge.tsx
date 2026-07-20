@@ -31,8 +31,6 @@ const tenantStyles: Record<TenantStatus, string> = {
 
 const subscriptionStyles: Record<SubscriptionStatus, string> = {
   active: 'bg-green-100 text-emerald-600',
-  expiring: 'bg-amber-50 text-amber-500',
-  quota_exhausted: 'bg-orange-100 text-orange-600',
   expired: 'bg-gray-100 text-gray-500',
   cancelled: 'bg-gray-100 text-gray-500',
 }

@@ -2,13 +2,7 @@
 
 export type TenantStatus = 'active' | 'suspended'
 export type BillingMode = 'subscription' | 'payg' | 'hybrid'
-export type SubscriptionStatus =
-  | 'active'
-  | 'expiring'
-  | 'quota_exhausted'
-  | 'expired'
-  | 'cancelled'
-export type OverageMode = null | 'payg'
+export type SubscriptionStatus = 'active' | 'expired' | 'cancelled'
 export type ChargeType = 'free_tier' | 'quota' | 'payg' | 'payg_overage'
 export type DocDirection = 'incoming' | 'outgoing'
 export type DocStatus = 'pending' | 'signed' | 'rejected' | 'cancelled'
@@ -199,7 +193,7 @@ export type Subscription = {
   quotaUsed: number
   autoRenew: boolean
   amountPaid: number
-  overageMode: OverageMode
+  /** Documents sent past the quota this period, charged at the plan's overage price. */
   overageDocs: number
   overageAmount: number
 }

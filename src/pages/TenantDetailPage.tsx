@@ -9,8 +9,6 @@ import {
   FileText,
   FileX,
   Info,
-  RefreshCw,
-  Repeat,
   Send,
   ShieldAlert,
   UserPlus,
@@ -151,9 +149,7 @@ const feedIcon: Record<FeedItem['kind'], ReactNode> = {
 }
 
 /** Actions confirmed through the reason dialog on this page. */
-type PendingAction =
-  | { kind: 'status'; next: TenantStatus }
-  | { kind: 'resolution'; label: string; description: string }
+type PendingAction = { kind: 'status'; next: TenantStatus }
 
 export default function TenantDetailPage() {
   const { id = '' } = useParams()
@@ -166,7 +162,6 @@ export default function TenantDetailPage() {
   const [docType, setDocType] = useState<string>(ALL)
   const [docStatus, setDocStatus] = useState<string>(ALL)
   const [docRange, setDocRange] = useState<DateRange>(EMPTY_RANGE)
-  const [overageMode, setOverageMode] = useState<'payg' | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
 
   const users = useMemo(() => (company ? usersByCompany(company.id) : []), [company])
@@ -300,17 +295,7 @@ export default function TenantDetailPage() {
   const blocked = status === 'suspended'
   const subscription = subscriptionByCompany(company.id)
   const balance = balanceByCompany(company.id)
-  const exhaustedSub =
-    subscription && subscription.status === 'quota_exhausted' && overageMode === null
-      ? subscription
-      : null
-
-  const mode =
-    exhaustedSub || overageMode === 'payg'
-      ? 'hybrid'
-      : terms.planId
-        ? 'subscription'
-        : company.billingMode
+  const mode = terms.planId ? 'subscription' : company.billingMode
 
   function applyPending(reason: string) {
     if (!pending) return
@@ -319,9 +304,6 @@ export default function TenantDetailPage() {
       setBanner(
         `Статус изменён на «${pending.next === 'suspended' ? 'Приостановлена' : 'Активна'}». Причина: ${reason}`,
       )
-    } else if (pending.kind === 'resolution') {
-      if (pending.label === 'Включить оплату за документ') setOverageMode('payg')
-      setBanner(`${pending.label} — применено. Причина: ${reason}`)
     }
     setPending(null)
   }
@@ -406,27 +388,6 @@ export default function TenantDetailPage() {
       cell: (d) => <span className="whitespace-nowrap">{formatDate(d.sentAt)}</span>,
     },
     { key: 'charge', header: 'Списание', cell: (d) => <ChargeTypeBadge type={d.chargeType} /> },
-  ]
-
-  const resolutions: Array<{ label: string; description: string; icon: ReactNode }> = [
-    {
-      label: 'Перекупить тот же план',
-      description:
-        'Квота сбрасывается до полного объёма, период начинается заново на всю длительность плана.',
-      icon: <RefreshCw className="size-4" />,
-    },
-    {
-      label: 'Сменить план',
-      description:
-        'Новый план начинает действовать немедленно и заменяет текущую подписку вместе с её квотой.',
-      icon: <Repeat className="size-4" />,
-    },
-    {
-      label: 'Включить оплату за документ',
-      description:
-        'Подписка остаётся исчерпанной, каждый следующий исходящий документ списывается с баланса по тарифу компании до конца периода.',
-      icon: <CreditCard className="size-4" />,
-    },
   ]
 
   const tabs = [
@@ -525,48 +486,6 @@ export default function TenantDetailPage() {
 
       {tab === 'billing' && (
         <div className="flex flex-col gap-4">
-          {exhaustedSub && (
-            <div className="rounded-xl border border-orange-200 bg-orange-50 p-6">
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="mt-0.5 size-5 shrink-0 text-orange-600" />
-                <div className="flex flex-col gap-1">
-                  <span className="text-lg font-semibold text-orange-700">
-                    Квота исчерпана — отправка документов приостановлена
-                  </span>
-                  <span className="text-sm text-orange-700">
-                    Компания израсходовала все {formatNumber(exhaustedSub.quotaTotal)} документов
-                    текущего периода. Исходящие документы не отправляются, пока не выбрано одно из
-                    трёх решений. Входящие документы и подписание остаются бесплатными.
-                  </span>
-                </div>
-              </div>
-              <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-                {resolutions.map((r) => (
-                  <div
-                    key={r.label}
-                    className="flex flex-col gap-3 rounded-lg border border-orange-200 bg-white p-4"
-                  >
-                    <span className="text-sm text-slate-600">{r.description}</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPending({
-                          kind: 'resolution',
-                          label: r.label,
-                          description: r.description,
-                        })
-                      }
-                      className="mt-auto flex items-center justify-center gap-2 rounded-lg bg-Smart-blue px-4 py-2.5 text-sm font-semibold text-white shadow-[0px_1px_2px_0px_rgba(16,24,40,0.05)] transition hover:brightness-105"
-                    >
-                      {r.icon}
-                      {r.label}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <FormCard title="Текущий режим">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Режим биллинга">
@@ -604,7 +523,7 @@ export default function TenantDetailPage() {
                   <div
                     className={cn(
                       'h-full rounded-full transition',
-                      subscription.status === 'quota_exhausted'
+                      subscription.quotaUsed >= quotaTotal
                         ? 'bg-orange-500'
                         : percent(subscription.quotaUsed, quotaTotal) >= 80
                           ? 'bg-amber-400'
@@ -798,22 +717,12 @@ export default function TenantDetailPage() {
         open={pending !== null}
         onClose={() => setPending(null)}
         onConfirm={applyPending}
-        destructive={pending?.kind === 'status' && pending.next === 'suspended'}
-        confirmLabel={pending?.kind === 'resolution' ? pending.label : 'Подтвердить'}
+        destructive={pending?.next === 'suspended'}
+        confirmLabel={pending?.next === 'suspended' ? 'Приостановить' : 'Активировать'}
         title={
-          pending?.kind === 'status'
-            ? pending.next === 'suspended'
-              ? 'Приостановить компанию'
-              : 'Активировать компанию'
-            : pending?.kind === 'resolution'
-              ? pending.label
-              : 'Подтверждение действия'
+          pending?.next === 'suspended' ? 'Приостановить компанию' : 'Активировать компанию'
         }
-        description={
-          pending?.kind === 'resolution'
-            ? pending.description
-            : `Компания: ${company.name} (ИНН ${formatInn(company.inn)}).`
-        }
+        description={`Компания: ${company.name} (ИНН ${formatInn(company.inn)}).`}
       />
 
       <FileTextSpacer />
