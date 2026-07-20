@@ -13,7 +13,6 @@ import type {
   TxType,
   PaymentMethod,
   PaymentStatus,
-  AdjustmentCategory,
   AuditResult,
 } from './admin'
 
@@ -90,7 +89,8 @@ export const txTypeLabel: Record<TxType, string> = {
 }
 
 export const paymentMethodLabel: Record<PaymentMethod, string> = {
-  card: 'Карта',
+  saved_card: 'Привязанная карта',
+  provider_page: 'Страница провайдера',
   bank_transfer: 'Банковский перевод',
   manual: 'Вручную',
 }
@@ -98,14 +98,6 @@ export const paymentMethodLabel: Record<PaymentMethod, string> = {
 export const paymentStatusLabel: Record<PaymentStatus, string> = {
   success: 'Успешно',
   failed: 'Ошибка',
-}
-
-export const adjustmentCategoryLabel: Record<AdjustmentCategory, string> = {
-  compensation: 'Компенсация',
-  refund: 'Возврат',
-  goodwill: 'Лояльность',
-  correction: 'Исправление',
-  promo: 'Промо',
 }
 
 export const auditResultLabel: Record<AuditResult, string> = {

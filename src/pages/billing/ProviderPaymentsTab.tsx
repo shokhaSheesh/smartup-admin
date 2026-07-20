@@ -3,7 +3,7 @@ import { CheckCircle2, XCircle } from 'lucide-react'
 import type { Payment, PaymentStatus } from '@/types/admin'
 import { PAYMENT_PROVIDERS } from '@/types/admin'
 import { payments } from '@/data/mock'
-import { paymentStatusLabel } from '@/types/labels'
+import { paymentMethodLabel, paymentStatusLabel } from '@/types/labels'
 import { PageCard } from '@/components/ui/PageCard'
 import { StatCard } from '@/components/ui/StatCard'
 import { DataTable } from '@/components/ui/DataTable'
@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { PaymentStatusBadge } from '@/components/ui/StatusBadge'
 import { formatDateTime, formatInn, formatMoney, formatNumber } from '@/lib/format'
+import { cn } from '@/lib/cn'
 
 const ANY = 'all'
 
@@ -105,11 +106,15 @@ export function ProviderPaymentsTab() {
             <span className="text-sm font-medium whitespace-nowrap text-slate-800">
               {p.provider}
             </span>
-            {tail && (
-              <span className="font-mono text-xs whitespace-nowrap text-gray-500">
-                •••• {tail}
-              </span>
-            )}
+            {/* Only a saved-card charge gives us the card; otherwise say how it was paid. */}
+            <span
+              className={cn(
+                'text-xs whitespace-nowrap text-gray-500',
+                tail && 'font-mono',
+              )}
+            >
+              {tail ? `•••• ${tail}` : paymentMethodLabel[p.method]}
+            </span>
           </div>
         )
       },

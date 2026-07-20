@@ -10,9 +10,8 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { adjustments as seedAdjustments, adminUsers, companies, currentAdmin } from '@/data/mock'
-import type { Adjustment, AdjustmentCategory, Company } from '@/types/admin'
-import { adjustmentCategoryLabel } from '@/types/labels'
-import { formatDate, formatDateTime, formatInn, formatMoney, formatNumber, formatSum } from '@/lib/format'
+import type { Adjustment, Company } from '@/types/admin'
+import { formatDateTime, formatInn, formatMoney, formatNumber, formatSum } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const DAY = 86_400_000
@@ -29,23 +28,11 @@ const directionShort: Record<Direction, string> = {
   debit: 'Debit',
 }
 
-const CATEGORY_KEYS = Object.keys(adjustmentCategoryLabel) as AdjustmentCategory[]
-
 const DIRECTION_OPTIONS = [
   { value: 'all', label: 'Все направления' },
   { value: 'credit', label: directionLabel.credit },
   { value: 'debit', label: directionLabel.debit },
 ]
-
-const CATEGORY_FILTER_OPTIONS = [
-  { value: 'all', label: 'Все категории' },
-  ...CATEGORY_KEYS.map((c) => ({ value: c, label: adjustmentCategoryLabel[c] })),
-]
-
-const CATEGORY_FORM_OPTIONS = CATEGORY_KEYS.map((c) => ({
-  value: c,
-  label: adjustmentCategoryLabel[c],
-}))
 
 const ADMIN_OPTIONS = [
   { value: 'all', label: 'Все администраторы' },
@@ -153,7 +140,6 @@ export default function AdjustmentsPage() {
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [direction, setDirection] = useState('all')
-  const [category, setCategory] = useState('all')
   const [admin, setAdmin] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -167,7 +153,6 @@ export default function AdjustmentsPage() {
   const [fDirection, setFDirection] = useState<Direction>('credit')
   const [fAmount, setFAmount] = useState('')
   const [fReason, setFReason] = useState('')
-  const [fCategory, setFCategory] = useState<string>('compensation')
   const [fFileName, setFFileName] = useState<string | null>(null)
   const [touched, setTouched] = useState(false)
   const [confirmation, setConfirmation] = useState<Adjustment | null>(null)
@@ -183,7 +168,6 @@ export default function AdjustmentsPage() {
     setFDirection('credit')
     setFAmount('')
     setFReason('')
-    setFCategory('compensation')
     setFFileName(null)
     setTouched(false)
     setFormOpen(true)
@@ -201,7 +185,6 @@ export default function AdjustmentsPage() {
       companyName: fCompany.name,
       direction: fDirection,
       amount: amountValue,
-      category: fCategory as AdjustmentCategory,
       reason: fReason.trim(),
       performedBy: currentAdmin.fullName,
     }
@@ -215,7 +198,6 @@ export default function AdjustmentsPage() {
   /* ------------------------------------------------------------------ list */
   const filtersActive =
     direction !== 'all' ||
-    category !== 'all' ||
     admin !== 'all' ||
     dateFrom !== '' ||
     dateTo !== ''
@@ -227,7 +209,6 @@ export default function AdjustmentsPage() {
 
     return rowsData.filter((a) => {
       if (direction !== 'all' && a.direction !== direction) return false
-      if (category !== 'all' && a.category !== category) return false
       if (admin !== 'all' && a.performedBy !== admin) return false
       const ts = +new Date(a.createdAt)
       if (from !== null && ts < from) return false
@@ -240,13 +221,12 @@ export default function AdjustmentsPage() {
         a.performedBy.toLowerCase().includes(q)
       )
     })
-  }, [rowsData, search, direction, category, admin, dateFrom, dateTo])
+  }, [rowsData, search, direction, admin, dateFrom, dateTo])
 
   const rows = paginate(filtered, page, pageSize)
 
   function resetFilters() {
     setDirection('all')
-    setCategory('all')
     setAdmin('all')
     setDateFrom('')
     setDateTo('')
@@ -258,7 +238,9 @@ export default function AdjustmentsPage() {
       key: 'date',
       header: 'Дата',
       cell: (a) => (
-        <span className="text-sm whitespace-nowrap text-gray-900">{formatDate(a.createdAt)}</span>
+        <span className="text-sm whitespace-nowrap text-gray-900">
+          {formatDateTime(a.createdAt)}
+        </span>
       ),
     },
     {
@@ -298,15 +280,6 @@ export default function AdjustmentsPage() {
         >
           {a.direction === 'credit' ? '+' : '−'}
           {formatMoney(a.amount)}
-        </span>
-      ),
-    },
-    {
-      key: 'category',
-      header: 'Категория',
-      cell: (a) => (
-        <span className="text-sm whitespace-nowrap text-gray-900">
-          {adjustmentCategoryLabel[a.category]}
         </span>
       ),
     },
@@ -389,15 +362,6 @@ export default function AdjustmentsPage() {
               value={direction}
               onChange={(v) => {
                 setDirection(v)
-                setPage(1)
-              }}
-            />
-            <Select
-              label="Категория"
-              options={CATEGORY_FILTER_OPTIONS}
-              value={category}
-              onChange={(v) => {
-                setCategory(v)
                 setPage(1)
               }}
             />
@@ -507,13 +471,6 @@ export default function AdjustmentsPage() {
                   ? 'Сумма в сумах, без копеек'
                   : `${fDirection === 'credit' ? 'Начислить' : 'Списать'} ${formatSum(amountValue)}`
             }
-          />
-
-          <Select
-            label="Категория"
-            options={CATEGORY_FORM_OPTIONS}
-            value={fCategory}
-            onChange={setFCategory}
           />
 
           <div className="flex w-full flex-col items-start gap-1.5">

@@ -7,7 +7,6 @@ import type {
   AdminDocument,
   AdminUser,
   Adjustment,
-  AdjustmentCategory,
   AuditEntry,
   BalanceAccount,
   BillingMode,
@@ -22,6 +21,7 @@ import type {
   SubscriptionStatus,
   TenantStatus,
   PlatformUser,
+  PaymentMethod,
   PaymentProvider,
   PaymentStatus,
   TenantUserRole,
@@ -606,12 +606,20 @@ function providerPayload(args: {
 export const payments: Payment[] = Array.from({ length: 140 }, (_, i) => {
   const c = companies[int(0, companies.length - 1)]
   const status: PaymentStatus = chance(0.16) ? 'failed' : 'success'
-  const method = chance(0.65) ? 'card' : chance(0.5) ? 'bank_transfer' : 'manual'
+  const method: PaymentMethod = chance(0.45)
+    ? 'provider_page'
+    : chance(0.5)
+      ? 'saved_card'
+      : chance(0.6)
+        ? 'bank_transfer'
+        : 'manual'
   // A manual top-up is keyed in by an admin, so no provider is involved.
   const provider = method === 'manual' ? null : pick(PAYMENT_PROVIDERS)
   const amount = pick([100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000])
   const createdAt = daysAgo(int(0, 120))
-  const cardMask = method === 'card' ? `8600 **** **** ${digits(4)}` : null
+  // Only a saved-card charge exposes the card to us; a provider-page payment
+  // happens entirely on the provider's side.
+  const cardMask = method === 'saved_card' ? `8600 **** **** ${digits(4)}` : null
   const providerRef = `${(provider ?? 'MANUAL').slice(0, 2).toUpperCase()}-${digits(10)}`
 
   return {
@@ -642,16 +650,6 @@ export const payments: Payment[] = Array.from({ length: 140 }, (_, i) => {
 
 /* ------------------------------------------------------------- adjustments */
 
-const ADJ_CATEGORIES: AdjustmentCategory[] = [
-  'compensation', 'refund', 'goodwill', 'correction', 'promo',
-]
-const ADJ_REASONS: Record<AdjustmentCategory, string> = {
-  compensation: 'Компенсация за сбой при отправке в ГНК',
-  refund: 'Возврат за ошибочно списанные документы',
-  goodwill: 'Бонус лояльному клиенту по договорённости',
-  correction: 'Исправление некорректного списания',
-  promo: 'Промо-начисление по маркетинговой кампании',
-}
 
 export const adminUsers: AdminUser[] = [
   {
@@ -713,10 +711,19 @@ export const adminUsers: AdminUser[] = [
 
 export const currentAdmin = adminUsers[0]
 
+/** Free-text reasons — the reason alone explains an adjustment. */
+const ADJ_REASONS = [
+  'Компенсация за сбой при отправке в ГНК',
+  'Возврат за ошибочно списанные документы',
+  'Бонус лояльному клиенту по договорённости',
+  'Исправление некорректного списания',
+  'Промо-начисление по маркетинговой кампании',
+]
+
 export const adjustments: Adjustment[] = Array.from({ length: 46 }, (_, i) => {
   const c = companies[int(0, companies.length - 1)]
-  const category = pick(ADJ_CATEGORIES)
-  const direction = category === 'correction' && chance(0.5) ? 'debit' : 'credit'
+  const reason = pick(ADJ_REASONS)
+  const direction = reason.startsWith('Исправление') && chance(0.5) ? 'debit' : 'credit'
   return {
     id: `adj-${i + 1}`,
     createdAt: daysAgo(int(0, 150)),
@@ -725,8 +732,7 @@ export const adjustments: Adjustment[] = Array.from({ length: 46 }, (_, i) => {
     companyName: c.name,
     direction,
     amount: pick([50_000, 100_000, 150_000, 300_000, 500_000]),
-    category,
-    reason: ADJ_REASONS[category],
+    reason,
     performedBy: pick(adminUsers.filter((a) => a.role !== 'analyst')).fullName,
   }
 })

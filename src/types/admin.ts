@@ -14,14 +14,17 @@ export type TxType =
   | 'document_charge'
   | 'manual_adjustment'
   | 'subscription_payment'
-export type PaymentMethod = 'card' | 'bank_transfer' | 'manual'
+/**
+ * How the money reached us. The distinction that matters for card data: a
+ * saved-card charge happens on our side, so we hold the masked PAN; a
+ * provider-page payment redirects the payer to Click/Payme and we never see it.
+ */
+export type PaymentMethod =
+  | 'saved_card'
+  | 'provider_page'
+  | 'bank_transfer'
+  | 'manual'
 export type PaymentStatus = 'success' | 'failed'
-export type AdjustmentCategory =
-  | 'compensation'
-  | 'refund'
-  | 'goodwill'
-  | 'correction'
-  | 'promo'
 export type AuditResult = 'success' | 'denied'
 
 /** The 16 document types on the platform. */
@@ -259,7 +262,6 @@ export type Adjustment = {
   companyName: string
   direction: 'credit' | 'debit'
   amount: number
-  category: AdjustmentCategory
   reason: string
   performedBy: string
 }
