@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/Button'
 import { Checkbox } from '@/components/ui/Checkbox'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { billingSettings } from '@/data/mock'
-import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 /* ------------------------------------------------------------ local helpers */
@@ -134,11 +133,6 @@ const PERIOD_START_OPTIONS = [
   { value: 'month_start', label: 'С 1-го числа календарного месяца' },
 ]
 
-const ALLOWANCE_RESET_OPTIONS = [
-  { value: 'monthly', label: 'Ежемесячно' },
-  { value: 'never', label: 'Не сбрасывается' },
-]
-
 const RETENTION_OPTIONS = [
   { value: '12', label: '12 месяцев' },
   { value: '36', label: '36 месяцев' },
@@ -156,8 +150,6 @@ type IntegrationKey = (typeof INTEGRATION_META)[number]['key']
 type SettingsState = {
   currency: string
   rounding: string
-  freeAllowance: string
-  allowanceReset: string
   periodStart: string
   autoRenew: boolean
   carryOverQuota: boolean
@@ -171,8 +163,6 @@ type SettingsState = {
 const initialSettings: SettingsState = {
   currency: billingSettings.currency,
   rounding: 'integer',
-  freeAllowance: String(billingSettings.freeMonthlyAllowance),
-  allowanceReset: 'monthly',
   periodStart: 'signup',
   autoRenew: true,
   carryOverQuota: false,
@@ -242,7 +232,6 @@ export default function SettingsPage() {
     setMaintenanceOpen(false)
   }
 
-  const freeAllowanceNumber = Number(settings.freeAllowance) || 0
 
   return (
     <div className="flex flex-col gap-4 pb-24">
@@ -270,30 +259,6 @@ export default function SettingsPage() {
         <p className="mt-3 text-sm text-gray-500">
           Округление применяется к итоговой стоимости списания за документ и к суммам в
           счетах. Тарифы в справочнике хранятся без округления.
-        </p>
-      </FormCard>
-
-      {/* ------------------------------------------------------ free allowance */}
-      <FormCard title="Бесплатный лимит по умолчанию">
-        <div className="grid grid-cols-1 gap-4 sm:max-w-2xl sm:grid-cols-2">
-          <Input
-            label="Документов в месяц"
-            type="number"
-            min={0}
-            value={settings.freeAllowance}
-            onChange={(e) => patch({ freeAllowance: e.target.value })}
-            hint={`Текущее значение: ${formatNumber(freeAllowanceNumber)} документов`}
-          />
-          <Select
-            label="Сброс лимита"
-            options={ALLOWANCE_RESET_OPTIONS}
-            value={settings.allowanceReset}
-            onChange={(v) => patch({ allowanceReset: v })}
-          />
-        </div>
-        <p className="mt-3 text-sm text-gray-500">
-          Лимит применяется ко всем новым компаниям. Тарифицируются только{' '}
-          {billingSettings.billableRule.toLowerCase()}.
         </p>
       </FormCard>
 

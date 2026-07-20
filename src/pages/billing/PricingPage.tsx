@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import type { PriceTier } from '@/types/admin'
-import { priceTiers as seedTiers } from '@/data/mock'
-import { PageCard, PageHeader } from '@/components/ui/PageCard'
+import { priceTiers as seedTiers, billingSettings } from '@/data/mock'
+import { PageCard, FormCard, PageHeader } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
 import { Modal } from '@/components/ui/Modal'
@@ -53,6 +53,12 @@ export default function PricingPage() {
   const [draft, setDraft] = useState<TierDraft>(emptyTierDraft)
   const [touched, setTouched] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<PriceTier | null>(null)
+
+  const [allowance, setAllowance] = useState({
+    docs: String(billingSettings.freeAllowanceDocs),
+    days: String(billingSettings.freeAllowanceDays),
+  })
+  const [allowanceSaved, setAllowanceSaved] = useState(false)
 
   const sortedTiers = useMemo(
     () => [...tiers].sort((a, b) => a.volumeFrom - b.volumeFrom),
@@ -161,6 +167,50 @@ export default function PricingPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <FormCard
+        title="Бесплатный лимит"
+        action={
+          <div className="flex items-center gap-3">
+            {allowanceSaved && (
+              <span className="text-sm font-medium text-emerald-600">Сохранено</span>
+            )}
+            <Button
+              size="md"
+              onClick={() => {
+                billingSettings.freeAllowanceDocs = Number(allowance.docs) || 0
+                billingSettings.freeAllowanceDays = Number(allowance.days) || 0
+                setAllowanceSaved(true)
+              }}
+            >
+              Сохранить
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 gap-4 sm:max-w-2xl sm:grid-cols-2">
+          <Input
+            label="Документов бесплатно"
+            inputMode="numeric"
+            value={allowance.docs}
+            onChange={(e) => {
+              setAllowance((a) => ({ ...a, docs: e.target.value.replace(/[^\d]/g, '') }))
+              setAllowanceSaved(false)
+            }}
+            placeholder="10"
+          />
+          <Input
+            label="Длительность, дней"
+            inputMode="numeric"
+            value={allowance.days}
+            onChange={(e) => {
+              setAllowance((a) => ({ ...a, days: e.target.value.replace(/[^\d]/g, '') }))
+              setAllowanceSaved(false)
+            }}
+            placeholder="30"
+          />
+        </div>
+      </FormCard>
+
       <PageCard>
         <PageHeader
           title="Тарификация за документ"

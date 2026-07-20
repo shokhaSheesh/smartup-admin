@@ -182,7 +182,10 @@ export const priceTiers: PriceTier[] = [
 
 /** Platform-wide billing settings. */
 export const billingSettings = {
-  freeMonthlyAllowance: 10,
+  /** Free documents granted per allowance period. */
+  freeAllowanceDocs: 10,
+  /** Length of that period in days. */
+  freeAllowanceDays: 30,
   currency: 'UZS',
   billableRule: 'Исходящие документы при успешной отправке',
   rounding: 'До целого сума',
@@ -344,8 +347,8 @@ export const balances: BalanceAccount[] = companies.map((c) => {
     companyInn: c.inn,
     companyName: c.name,
     balance: c.balance,
-    freeAllowanceTotal: billingSettings.freeMonthlyAllowance,
-    freeAllowanceUsed: int(0, billingSettings.freeMonthlyAllowance),
+    freeAllowanceTotal: billingSettings.freeAllowanceDocs,
+    freeAllowanceUsed: int(0, billingSettings.freeAllowanceDocs),
     lastTopUpAt: chance(0.85) ? daysAgo(int(0, 90)) : null,
     totalToppedUp,
     totalConsumed: Math.max(0, totalToppedUp - c.balance),
