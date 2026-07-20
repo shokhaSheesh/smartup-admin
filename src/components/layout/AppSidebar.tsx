@@ -39,6 +39,28 @@ function NavRow({
         : 'text-slate-300 hover:bg-white/5 hover:text-white',
   )
 
+  if (item.comingSoon) {
+    return (
+      <div
+        className={cn(
+          'flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-slate-500',
+          collapsed && 'justify-center px-0',
+        )}
+        title={collapsed ? `${item.label} — скоро` : undefined}
+      >
+        <Icon className="size-6 shrink-0" strokeWidth={1.6} />
+        {!collapsed && (
+          <>
+            <span className="flex-1 text-left">{item.label}</span>
+            <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-semibold text-slate-400">
+              Скоро
+            </span>
+          </>
+        )}
+      </div>
+    )
+  }
+
   if (hasChildren) {
     return (
       <div>

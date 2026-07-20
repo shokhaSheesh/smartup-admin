@@ -31,7 +31,6 @@ export type Role = {
 
 /** Every page of the panel, grouped the way the sidebar groups them. */
 export const ADMIN_PAGES: Array<{ key: string; label: string; group: string }> = [
-  { key: 'dashboard', label: 'Дашборд', group: 'Основное' },
   { key: 'tenants', label: 'Компании', group: 'Основное' },
   { key: 'users', label: 'Пользователи', group: 'Основное' },
   { key: 'documents', label: 'Документы', group: 'Основное' },
@@ -45,7 +44,6 @@ export const ADMIN_PAGES: Array<{ key: string; label: string; group: string }> =
   { key: 'team', label: 'Команда администраторов', group: 'Администрирование' },
   { key: 'roles', label: 'Роли и права', group: 'Администрирование' },
   { key: 'audit', label: 'Журнал аудита', group: 'Администрирование' },
-  { key: 'settings', label: 'Настройки', group: 'Администрирование' },
 ]
 
 export const PAGE_GROUPS = Array.from(new Set(ADMIN_PAGES.map((p) => p.group)))
@@ -100,7 +98,6 @@ const seedRoles: Role[] = [
       documents: READ_ONLY,
       team: NO_ACCESS,
       roles: NO_ACCESS,
-      settings: NO_ACCESS,
       adjustments: NO_ACCESS,
     }),
   },
@@ -115,7 +112,6 @@ const seedRoles: Role[] = [
       adjustments: { read: true, create: true, update: false, delete: false },
       team: NO_ACCESS,
       roles: NO_ACCESS,
-      settings: NO_ACCESS,
     }),
   },
   {
@@ -126,7 +122,6 @@ const seedRoles: Role[] = [
       team: NO_ACCESS,
       roles: NO_ACCESS,
       audit: NO_ACCESS,
-      settings: NO_ACCESS,
       adjustments: NO_ACCESS,
     }),
   },

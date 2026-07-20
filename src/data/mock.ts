@@ -787,16 +787,34 @@ const AUDIT_ACTIONS: Array<{
 }> = [
   { action: 'Вход в систему', targetType: 'Session' },
   { action: 'Неудачная попытка входа', targetType: 'Session' },
+
   { action: 'Просмотр содержимого документа', targetType: 'Document' },
-  { action: 'Редактирование компании', targetType: 'Company' },
-  { action: 'Блокировка компании', targetType: 'Company' },
-  { action: 'Разблокировка компании', targetType: 'Company' },
-  { action: 'Ручная корректировка баланса', targetType: 'Balance' },
-  { action: 'Изменение тарифного плана', targetType: 'Plan' },
-  { action: 'Изменение подписки', targetType: 'Company' },
-  { action: 'Изменение роли администратора', targetType: 'Role' },
-  { action: 'Экспорт данных', targetType: 'Company' },
+  { action: 'Экспорт реестра документов', targetType: 'Document' },
+
+  { action: 'Изменение тарифа компании', targetType: 'Company' },
+  { action: 'Приостановка компании', targetType: 'Company' },
+  { action: 'Активация компании', targetType: 'Company' },
+  { action: 'Отмена подписки', targetType: 'Company' },
+
+  { action: 'Корректировка баланса компании', targetType: 'Balance' },
+  { action: 'Корректировка баланса пользователя', targetType: 'Balance' },
+
   { action: 'Блокировка пользователя', targetType: 'User' },
+  { action: 'Разблокировка пользователя', targetType: 'User' },
+
+  { action: 'Создание тарифного плана', targetType: 'Plan' },
+  { action: 'Изменение тарифного плана', targetType: 'Plan' },
+  { action: 'Архивирование тарифного плана', targetType: 'Plan' },
+  { action: 'Изменение ценового уровня', targetType: 'Plan' },
+  { action: 'Изменение бесплатного лимита', targetType: 'Plan' },
+
+  { action: 'Создание роли', targetType: 'Role' },
+  { action: 'Изменение прав роли', targetType: 'Role' },
+  { action: 'Удаление роли', targetType: 'Role' },
+
+  { action: 'Приглашение администратора', targetType: 'Admin' },
+  { action: 'Изменение администратора', targetType: 'Admin' },
+  { action: 'Удаление администратора', targetType: 'Admin' },
 ]
 
 export const auditLog: AuditEntry[] = Array.from({ length: 180 }, (_, i): AuditEntry => {
@@ -816,7 +834,9 @@ export const auditLog: AuditEntry[] = Array.from({ length: 180 }, (_, i): AuditE
           ? pick(plans).name
           : entry.targetType === 'Role'
             ? pick(['Супер-админ', 'Поддержка', 'Финансы', 'Аналитик'])
-            : c.inn
+            : entry.targetType === 'Admin'
+              ? pick(adminUsers).fullName
+              : c.inn
 
   return {
     id: `aud-${i + 1}`,

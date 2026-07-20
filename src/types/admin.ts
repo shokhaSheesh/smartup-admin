@@ -314,7 +314,15 @@ export type AuditEntry = {
   adminName: string
   adminRole: AdminRole
   action: string
-  targetType: 'Company' | 'User' | 'Document' | 'Plan' | 'Balance' | 'Role' | 'Session'
+  targetType:
+    | 'Company'
+    | 'User'
+    | 'Document'
+    | 'Plan'
+    | 'Balance'
+    | 'Role'
+    | 'Admin'
+    | 'Session'
   target: string
   ip: string
   result: AuditResult

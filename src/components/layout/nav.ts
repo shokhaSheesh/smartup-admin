@@ -6,7 +6,6 @@ import {
   FileText,
   Wallet,
   ShieldCheck,
-  Settings,
   LogOut,
 } from 'lucide-react'
 
@@ -16,10 +15,12 @@ export type NavItem = {
   icon: LucideIcon
   to?: string
   children?: NavChild[]
+  /** Rendered greyed out with a «Скоро» badge and no link. */
+  comingSoon?: boolean
 }
 
 export const mainNav: NavItem[] = [
-  { label: 'Дашборд', icon: BarChart3, to: '/dashboard' },
+  { label: 'Дашборд', icon: BarChart3, comingSoon: true },
   { label: 'Компании', icon: Building2, to: '/tenants' },
   { label: 'Пользователи', icon: Users, to: '/users' },
   { label: 'Документы', icon: FileText, to: '/documents' },
@@ -45,7 +46,4 @@ export const mainNav: NavItem[] = [
   },
 ]
 
-export const bottomNav: NavItem[] = [
-  { label: 'Настройки', icon: Settings, to: '/settings' },
-  { label: 'Выйти', icon: LogOut, to: '/login' },
-]
+export const bottomNav: NavItem[] = [{ label: 'Выйти', icon: LogOut, to: '/login' }]

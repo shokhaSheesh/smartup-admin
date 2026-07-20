@@ -38,6 +38,7 @@ const TARGET_TYPE_LABEL: Record<AuditEntry['targetType'], string> = {
   Plan: 'Тарифный план',
   Balance: 'Баланс',
   Role: 'Роль',
+  Admin: 'Администратор',
   Session: 'Сессия',
 }
 
