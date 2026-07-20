@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Power, UserCog, UserPlus } from 'lucide-react'
+import { Pencil, Trash2, UserPlus } from 'lucide-react'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
@@ -74,10 +74,15 @@ export default function TeamPage() {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [invite, setInvite] = useState<InviteDraft>(emptyInvite)
 
-  const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null)
-  const [nextRole, setNextRole] = useState<AdminRole>('support')
+  const [editTarget, setEditTarget] = useState<AdminUser | null>(null)
+  const [edit, setEdit] = useState({
+    fullName: '',
+    phone: '',
+    role: 'support' as AdminRole,
+    status: 'active' as AdminUser['status'],
+  })
 
-  const [toggleTarget, setToggleTarget] = useState<AdminUser | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
 
   const filtersActive = roleFilter !== 'all' || statusFilter !== 'all'
 
@@ -116,26 +121,27 @@ export default function TeamPage() {
     setInviteOpen(false)
   }
 
-  function applyRole() {
-    if (!roleTarget) return
-    setTeam((prev) =>
-      prev.map((u) => (u.id === roleTarget.id ? { ...u, role: nextRole } : u)),
-    )
-    setRoleTarget(null)
+  function openEdit(u: AdminUser) {
+    setEdit({ fullName: u.fullName, phone: u.phone, role: u.role, status: u.status })
+    setEditTarget(u)
   }
 
-  function applyToggle(reason: string) {
-    if (!toggleTarget) return
-    // In a real build the reason travels with the request to the audit log.
-    void reason
+  function applyEdit() {
+    if (!editTarget || edit.fullName.trim().length === 0) return
     setTeam((prev) =>
       prev.map((u) =>
-        u.id === toggleTarget.id
-          ? { ...u, status: u.status === 'active' ? 'disabled' : 'active' }
+        u.id === editTarget.id
+          ? {
+              ...u,
+              fullName: edit.fullName.trim(),
+              phone: edit.phone.trim(),
+              role: edit.role,
+              status: edit.status,
+            }
           : u,
       ),
     )
-    setToggleTarget(null)
+    setEditTarget(null)
   }
 
   const columns: Column<AdminUser>[] = [
@@ -188,33 +194,22 @@ export default function TeamPage() {
           <RowMenu
             items={[
               {
-                label: 'Изменить роль',
-                icon: <UserCog className="size-4" />,
-                onClick: () => {
-                  setNextRole(u.role)
-                  setRoleTarget(u)
-                },
+                label: 'Изменить',
+                icon: <Pencil className="size-4" />,
+                onClick: () => openEdit(u),
               },
-              u.status === 'active'
-                ? {
-                    label: 'Отключить',
-                    icon: <Power className="size-4" />,
-                    danger: true,
-                    onClick: () => setToggleTarget(u),
-                  }
-                : {
-                    label: 'Включить',
-                    icon: <Power className="size-4" />,
-                    onClick: () => setToggleTarget(u),
-                  },
+              {
+                label: 'Удалить',
+                icon: <Trash2 className="size-4" />,
+                danger: true,
+                onClick: () => setDeleteTarget(u),
+              },
             ]}
           />
         </div>
       ),
     },
   ]
-
-  const disabling = toggleTarget ? toggleTarget.status === 'active' : false
 
   return (
     <div className="flex flex-col gap-4">
@@ -328,58 +323,73 @@ export default function TeamPage() {
         </div>
       </Modal>
 
-      {/* --------------------------------------------------- change role modal */}
+      {/* -------------------------------------------------------- edit modal */}
       <Modal
-        open={roleTarget !== null}
-        onClose={() => setRoleTarget(null)}
-        title="Изменить роль"
+        open={editTarget !== null}
+        onClose={() => setEditTarget(null)}
+        title="Изменить администратора"
         maxWidth="max-w-md"
       >
         <div className="flex flex-col gap-4 px-6 py-5">
-          <p className="text-sm text-slate-600">
-            Администратор:{' '}
-            <b className="font-semibold text-slate-800">{roleTarget?.fullName}</b>
-          </p>
+          <Input
+            label="ФИО"
+            value={edit.fullName}
+            onChange={(e) => setEdit({ ...edit, fullName: e.target.value })}
+            placeholder="Иванов Иван"
+          />
+          <Input
+            label="Телефон"
+            value={edit.phone}
+            onChange={(e) => setEdit({ ...edit, phone: e.target.value })}
+            placeholder="+998 90 000 00 00"
+          />
           <Select
-            label="Новая роль"
+            label="Роль"
             options={ROLE_OPTIONS}
-            value={nextRole}
-            onChange={(v) => setNextRole(v as AdminRole)}
+            value={edit.role}
+            onChange={(v) => setEdit({ ...edit, role: v as AdminRole })}
+          />
+          <Select
+            label="Статус"
+            options={[
+              { value: 'active', label: adminStatusLabel.active },
+              { value: 'disabled', label: adminStatusLabel.disabled },
+            ]}
+            value={edit.status}
+            onChange={(v) => setEdit({ ...edit, status: v as AdminUser['status'] })}
           />
           <p className="text-sm text-gray-500">
-            Изменение роли записывается в журнал аудита.
+            Изменения записываются в журнал аудита.
           </p>
           <div className="flex items-center justify-end gap-3">
-            <Button hierarchy="secondary-gray" onClick={() => setRoleTarget(null)}>
+            <Button hierarchy="secondary-gray" onClick={() => setEditTarget(null)}>
               Отменить
             </Button>
-            <Button onClick={applyRole}>Сохранить</Button>
+            <Button disabled={edit.fullName.trim().length === 0} onClick={applyEdit}>
+              Сохранить
+            </Button>
           </div>
         </div>
       </Modal>
 
       <ConfirmDialog
-        open={toggleTarget !== null}
-        onClose={() => setToggleTarget(null)}
-        onConfirm={applyToggle}
-        title={disabling ? 'Отключить администратора' : 'Включить администратора'}
-        confirmLabel={disabling ? 'Отключить' : 'Включить'}
-        destructive={disabling}
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        destructive
+        confirmLabel="Удалить"
+        title="Удалить администратора"
         description={
-          disabling ? (
-            <>
-              Учётная запись{' '}
-              <b className="font-semibold text-slate-800">{toggleTarget?.fullName}</b> потеряет
-              доступ к панели управления немедленно.
-            </>
-          ) : (
-            <>
-              Учётной записи{' '}
-              <b className="font-semibold text-slate-800">{toggleTarget?.fullName}</b> будет
-              возвращён доступ к панели управления.
-            </>
-          )
+          <>
+            Учётная запись{' '}
+            <b className="font-semibold text-slate-800">{deleteTarget?.fullName}</b> будет
+            удалена, доступ к панели прекратится немедленно. Записи в журнале аудита
+            сохранятся.
+          </>
         }
+        onConfirm={() => {
+          if (!deleteTarget) return
+          setTeam((prev) => prev.filter((u) => u.id !== deleteTarget.id))
+        }}
       />
 
     </div>
