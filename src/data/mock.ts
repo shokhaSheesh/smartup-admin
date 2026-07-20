@@ -673,7 +673,7 @@ export const adjustments: Adjustment[] = Array.from({ length: 46 }, (_, i) => {
 
 const TX_TYPES: TxType[] = [
   'topup', 'document_charge', 'document_charge', 'document_charge',
-  'manual_adjustment', 'refund', 'subscription_payment',
+  'manual_adjustment', 'subscription_payment',
 ]
 
 export const transactions: Transaction[] = Array.from({ length: 260 }, (_, i) => {
@@ -692,9 +692,6 @@ export const transactions: Transaction[] = Array.from({ length: 260 }, (_, i) =>
     case 'manual_adjustment':
       amount = chance(0.7) ? pick([50_000, 100_000, 300_000]) : -pick([50_000, 100_000])
       break
-    case 'refund':
-      amount = pick([50_000, 150_000, 250_000])
-      break
     default:
       amount = -pick([150_000, 450_000, 1_800_000])
   }
@@ -707,19 +704,14 @@ export const transactions: Transaction[] = Array.from({ length: 260 }, (_, i) =>
     companyName: c.name,
     type,
     amount,
-    balanceAfter: Math.max(0, int(0, 4_000_000)),
     documentId: doc?.id ?? null,
     documentNumber: doc?.number ?? null,
     adminName:
-      type === 'manual_adjustment' || type === 'refund'
+      type === 'manual_adjustment'
         ? pick(adminUsers.filter((a) => a.role !== 'analyst')).fullName
         : null,
     reason:
-      type === 'manual_adjustment'
-        ? 'Компенсация за сбой при отправке'
-        : type === 'refund'
-          ? 'Возврат за неуспешную отправку в ГНК'
-          : null,
+      type === 'manual_adjustment' ? 'Компенсация за сбой при отправке' : null,
   }
 }).sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
 

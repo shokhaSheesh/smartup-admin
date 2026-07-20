@@ -12,7 +12,6 @@ import DocumentDetailPage from './pages/DocumentDetailPage'
 import PlansPage from './pages/billing/PlansPage'
 import PricingPage from './pages/billing/PricingPage'
 import SubscriptionsPage from './pages/billing/SubscriptionsPage'
-import TopupsPage from './pages/billing/TopupsPage'
 import TransactionsPage from './pages/billing/TransactionsPage'
 import AdjustmentsPage from './pages/billing/AdjustmentsPage'
 import TeamPage from './pages/admin/TeamPage'
@@ -46,7 +45,6 @@ export default function App() {
           <Route path="/billing/plans" element={<PlansPage />} />
           <Route path="/billing/pricing" element={<PricingPage />} />
           <Route path="/billing/subscriptions" element={<SubscriptionsPage />} />
-          <Route path="/billing/topups" element={<TopupsPage />} />
           <Route path="/billing/transactions" element={<TransactionsPage />} />
           <Route path="/billing/adjustments" element={<AdjustmentsPage />} />
 

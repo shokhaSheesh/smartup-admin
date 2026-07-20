@@ -30,7 +30,6 @@ export const mainNav: NavItem[] = [
       { label: 'Тарифные планы', to: '/billing/plans' },
       { label: 'Ценовые уровни', to: '/billing/pricing' },
       { label: 'Подписки', to: '/billing/subscriptions' },
-      { label: 'Балансы и пополнения', to: '/billing/topups' },
       { label: 'Транзакции', to: '/billing/transactions' },
       { label: 'Ручные корректировки', to: '/billing/adjustments' },
     ],

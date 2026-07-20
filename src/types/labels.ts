@@ -86,7 +86,6 @@ export const txTypeLabel: Record<TxType, string> = {
   topup: 'Пополнение',
   document_charge: 'Списание за документ',
   manual_adjustment: 'Ручная корректировка',
-  refund: 'Возврат',
   subscription_payment: 'Оплата подписки',
 }
 

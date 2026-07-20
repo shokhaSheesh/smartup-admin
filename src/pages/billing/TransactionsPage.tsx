@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, FileText, Lock } from 'lucide-react'
+import { Download, FileText } from 'lucide-react'
 import { PageCard, PageHeader } from '@/components/ui/PageCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/Input'
 import { adminUsers, companies, transactions } from '@/data/mock'
 import type { Transaction, TxType } from '@/types/admin'
 import { txTypeLabel } from '@/types/labels'
-import { formatDateTime, formatInn, formatMoney, formatNumber, formatSigned } from '@/lib/format'
+import { formatDateTime, formatInn, formatNumber, formatSigned } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const DAY = 86_400_000
@@ -40,7 +40,6 @@ function exportTransactionsCsv(rows: Transaction[]) {
     'Компания',
     'Тип',
     'Сумма',
-    'Баланс после',
     'Документ №',
     'Администратор',
     'Причина',
@@ -51,7 +50,6 @@ function exportTransactionsCsv(rows: Transaction[]) {
     t.companyName,
     txTypeLabel[t.type],
     formatSigned(t.amount),
-    formatMoney(t.balanceAfter),
     t.documentNumber ?? '',
     t.adminName ?? '',
     t.reason ?? '',
@@ -188,16 +186,6 @@ export default function TransactionsPage() {
       ),
     },
     {
-      key: 'balanceAfter',
-      header: 'Баланс после',
-      cls: 'text-right',
-      cell: (t) => (
-        <span className="text-sm whitespace-nowrap tabular-nums text-gray-900">
-          {formatMoney(t.balanceAfter)}
-        </span>
-      ),
-    },
-    {
       key: 'document',
       header: 'Документ №',
       cell: (t) =>
@@ -238,20 +226,6 @@ export default function TransactionsPage() {
         title="Транзакции"
         subtitle={`Неизменяемый журнал движений по балансам — ${formatNumber(transactions.length)} записей`}
       />
-
-      <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-[0px_1px_2px_0px_rgba(16,24,40,0.06)]">
-        <Lock className="mt-0.5 size-4 shrink-0 text-gray-400" />
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-semibold text-slate-800">
-            Журнал только на добавление (append-only)
-          </span>
-          <span className="text-sm text-gray-500">
-            Записи журнала нельзя изменить или удалить. Исправление ошибки оформляется новой
-            компенсирующей проводкой в разделе «Ручные корректировки» — она добавляется в конец
-            журнала и не затрагивает исходную запись.
-          </span>
-        </div>
-      </div>
 
       <PageCard>
         <Toolbar

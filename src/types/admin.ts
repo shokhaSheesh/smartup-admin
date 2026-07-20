@@ -13,7 +13,6 @@ export type TxType =
   | 'topup'
   | 'document_charge'
   | 'manual_adjustment'
-  | 'refund'
   | 'subscription_payment'
 export type PaymentMethod = 'card' | 'bank_transfer' | 'manual'
 export type PaymentStatus = 'pending' | 'success' | 'failed'
@@ -218,7 +217,6 @@ export type Transaction = {
   companyName: string
   type: TxType
   amount: number
-  balanceAfter: number
   documentId: string | null
   documentNumber: string | null
   adminName: string | null

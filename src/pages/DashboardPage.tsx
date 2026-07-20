@@ -290,7 +290,7 @@ export default function DashboardPage() {
       .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
       .map<AttentionRow>((p) => ({
         id: `fp-${p.id}`,
-        to: '/billing/topups',
+        to: '/billing/transactions',
         title: p.companyName,
         meta: `${formatDate(p.createdAt)} · ${p.providerRef}`,
         value: formatSum(p.amount),
@@ -324,7 +324,7 @@ export default function DashboardPage() {
         hint: 'Остатка хватит менее чем на 10 документов',
         icon: CreditCard,
         pill: 'bg-amber-300',
-        to: '/billing/topups',
+        to: '/tenants',
         rows: lowBalance,
       },
       {
@@ -342,7 +342,7 @@ export default function DashboardPage() {
         hint: 'Платежи, отклонённые провайдером',
         icon: XCircle,
         pill: 'bg-red-500',
-        to: '/billing/topups',
+        to: '/billing/transactions',
         rows: failedPayments,
       },
       {
