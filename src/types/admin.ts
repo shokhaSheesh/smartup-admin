@@ -223,6 +223,15 @@ export type Transaction = {
   reason: string | null
 }
 
+/** Payment providers the platform settles through. */
+export const PAYMENT_PROVIDERS = ['Payme', 'Click', 'Uzum Bank', 'Apelsin'] as const
+export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number]
+
+/**
+ * A settlement attempt at a payment provider. Kept separate from balance
+ * movements: here the provider's own response matters, not what the money was
+ * for — a failed payment has to be provable against the provider.
+ */
 export type Payment = {
   id: string
   createdAt: string
@@ -233,9 +242,13 @@ export type Payment = {
   companyName: string
   amount: number
   method: PaymentMethod
+  /** Null for manual top-ups entered by an admin — no provider was involved. */
+  provider: PaymentProvider | null
   providerRef: string
   cardMask: string | null
   status: PaymentStatus
+  /** Raw response body as received from the provider. */
+  rawResponse: string
 }
 
 export type Adjustment = {

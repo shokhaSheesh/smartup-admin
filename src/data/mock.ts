@@ -2,7 +2,7 @@
  * Deterministic mock dataset for the super-admin panel.
  * Seeded PRNG so the data is stable across reloads — no backend yet.
  */
-import { DOC_TYPE_CATALOG, DOC_TYPES } from '@/types/admin'
+import { DOC_TYPE_CATALOG, DOC_TYPES, PAYMENT_PROVIDERS } from '@/types/admin'
 import type {
   AdminDocument,
   AdminUser,
@@ -22,6 +22,8 @@ import type {
   SubscriptionStatus,
   TenantStatus,
   PlatformUser,
+  PaymentProvider,
+  PaymentStatus,
   TenantUserRole,
   AuthMethod,
   Transaction,
@@ -559,22 +561,85 @@ export const documents: AdminDocument[] = [...companyDocuments, ...individualDoc
 
 /* ----------------------------------------------------------------- payments */
 
+/** Provider error codes, so a failed payment can be evidenced against them. */
+const PROVIDER_ERRORS = [
+  { code: -31008, message: 'Insufficient funds on card' },
+  { code: -31099, message: 'Card is blocked by issuer' },
+  { code: -31003, message: 'Transaction not found on provider side' },
+  { code: -32504, message: 'Merchant authorization failed' },
+  { code: -31610, message: 'Provider gateway timeout' },
+]
+
+/** The body a provider returned, formatted as it arrived. */
+function providerPayload(args: {
+  provider: PaymentProvider
+  ref: string
+  amountTiyin: number
+  status: PaymentStatus
+  createdAt: string
+  cardMask: string | null
+}): string {
+  const base = {
+    provider: args.provider,
+    transaction_id: args.ref,
+    amount: args.amountTiyin,
+    currency: 860,
+    created_time: new Date(args.createdAt).getTime(),
+    card: args.cardMask,
+  }
+
+  if (args.status === 'success') {
+    return JSON.stringify(
+      { ...base, state: 2, perform_time: new Date(args.createdAt).getTime() + 4200, error: null },
+      null,
+      2,
+    )
+  }
+  if (args.status === 'pending') {
+    return JSON.stringify({ ...base, state: 1, perform_time: null, error: null }, null, 2)
+  }
+  const err = pick(PROVIDER_ERRORS)
+  return JSON.stringify(
+    { ...base, state: -1, perform_time: null, error: { code: err.code, message: err.message, data: null } },
+    null,
+    2,
+  )
+}
+
 export const payments: Payment[] = Array.from({ length: 140 }, (_, i) => {
   const c = companies[int(0, companies.length - 1)]
-  const status = chance(0.08) ? 'failed' : chance(0.06) ? 'pending' : 'success'
+  const status: PaymentStatus = chance(0.14) ? 'failed' : chance(0.08) ? 'pending' : 'success'
   const method = chance(0.65) ? 'card' : chance(0.5) ? 'bank_transfer' : 'manual'
+  // A manual top-up is keyed in by an admin, so no provider is involved.
+  const provider = method === 'manual' ? null : pick(PAYMENT_PROVIDERS)
+  const amount = pick([100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000])
+  const createdAt = daysAgo(int(0, 120))
+  const cardMask = method === 'card' ? `8600 **** **** ${digits(4)}` : null
+  const providerRef = `${(provider ?? 'MANUAL').slice(0, 2).toUpperCase()}-${digits(10)}`
+
   return {
     id: `pay-${i + 1}`,
-    createdAt: daysAgo(int(0, 120)),
+    createdAt,
     companyId: c.id,
     actorUserId: pickEmployeeOf(c.id),
     companyInn: c.inn,
     companyName: c.name,
-    amount: pick([100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000]),
+    amount,
     method,
-    providerRef: `PMT-${digits(10)}`,
-    cardMask: method === 'card' ? `8600 **** **** ${digits(4)}` : null,
+    provider,
+    providerRef,
+    cardMask,
     status,
+    rawResponse: provider
+      ? providerPayload({
+          provider,
+          ref: providerRef,
+          amountTiyin: amount * 100,
+          status,
+          createdAt,
+          cardMask,
+        })
+      : JSON.stringify({ source: 'manual', entered_by: 'admin', note: 'Проведено вручную' }, null, 2),
   }
 })
 

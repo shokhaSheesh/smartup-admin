@@ -6,13 +6,15 @@ import { StatCard } from '@/components/ui/StatCard'
 import { DataTable } from '@/components/ui/DataTable'
 import type { Column } from '@/components/ui/DataTable'
 import { Toolbar } from '@/components/ui/Toolbar'
+import { Tabs } from '@/components/ui/Tabs'
+import { ProviderPaymentsTab } from './ProviderPaymentsTab'
 import { Pagination, paginate, PAGE_SIZES } from '@/components/ui/Pagination'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { adminUsers, companies, transactions } from '@/data/mock'
 import type { Transaction, TxType } from '@/types/admin'
 import { txTypeLabel } from '@/types/labels'
-import { formatDateTime, formatInn, formatNumber, formatSigned } from '@/lib/format'
+import { formatDateTime, formatInn, formatSigned } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const DAY = 86_400_000
@@ -33,7 +35,7 @@ const ADMIN_OPTIONS = [
   ...adminUsers.map((a) => ({ value: a.fullName, label: a.fullName })),
 ]
 
-export default function TransactionsPage() {
+function BalanceOperationsTab() {
   const navigate = useNavigate()
 
   const [search, setSearch] = useState('')
@@ -188,11 +190,6 @@ export default function TransactionsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Транзакции"
-        subtitle={`Неизменяемый журнал движений по балансам — ${formatNumber(transactions.length)} записей`}
-      />
-
       <div className="flex flex-col gap-4 lg:flex-row">
         <StatCard
           value={formatSigned(totals.credit)}
@@ -324,6 +321,34 @@ export default function TransactionsPage() {
           onPageSizeChange={setPageSize}
         />
       </PageCard>
+    </div>
+  )
+}
+
+const TABS = [
+  { key: 'operations', label: 'Операции по балансам' },
+  { key: 'providers', label: 'Платежи провайдеров' },
+]
+
+export default function TransactionsPage() {
+  const [tab, setTab] = useState('operations')
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Транзакции"
+        subtitle={
+          tab === 'operations'
+            ? 'Движения по балансам компаний — за что списано и начислено'
+            : 'Расчёты с платёжными провайдерами и их ответы'
+        }
+      />
+
+      <PageCard>
+        <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      </PageCard>
+
+      {tab === 'operations' ? <BalanceOperationsTab /> : <ProviderPaymentsTab />}
     </div>
   )
 }
