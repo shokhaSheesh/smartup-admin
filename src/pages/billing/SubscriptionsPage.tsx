@@ -83,13 +83,9 @@ export default function SubscriptionsPage() {
 
   const kpis = useMemo(() => {
     const active = list.filter((s) => s.status === 'active').length
-    const expiring7 = list.filter(
-      (s) =>
-        s.status === 'active' &&
-        daysUntil(s.periodEnd) >= 0 &&
-        daysUntil(s.periodEnd) <= 7,
-    ).length
-    return { active, expiring7 }
+    const expired = list.filter((s) => s.status === 'expired').length
+    const cancelled = list.filter((s) => s.status === 'cancelled').length
+    return { active, expired, cancelled }
   }, [list])
 
   const filtered = useMemo(() => {
@@ -170,19 +166,7 @@ export default function SubscriptionsPage() {
     {
       key: 'to',
       header: 'Период по',
-      cell: (s) => {
-        const days = daysUntil(s.periodEnd)
-        return (
-          <div className="flex flex-col gap-0.5">
-            <span className="whitespace-nowrap">{formatDate(s.periodEnd)}</span>
-            {days >= 0 && days <= 30 && s.status !== 'cancelled' && (
-              <span className="text-xs whitespace-nowrap text-amber-500">
-                через {formatNumber(days)} дн.
-              </span>
-            )}
-          </div>
-        )
-      },
+      cell: (s) => <span className="whitespace-nowrap">{formatDate(s.periodEnd)}</span>,
     },
     {
       key: 'quota',
@@ -263,17 +247,24 @@ export default function SubscriptionsPage() {
       <div className="flex flex-col gap-4 lg:flex-row">
         <StatCard
           value={formatNumber(kpis.active)}
-          label="Активных подписок"
+          label="Активные"
           icon={CheckCircle2}
           iconBg="bg-green-100"
           iconColor="text-emerald-600"
         />
         <StatCard
-          value={formatNumber(kpis.expiring7)}
-          label="Истекают за 7 дней"
+          value={formatNumber(kpis.expired)}
+          label="Истекшие"
           icon={Clock}
-          iconBg="bg-blue-50"
-          iconColor="text-Smart-blue"
+          iconBg="bg-gray-100"
+          iconColor="text-gray-500"
+        />
+        <StatCard
+          value={formatNumber(kpis.cancelled)}
+          label="Отменённые"
+          icon={XCircle}
+          iconBg="bg-gray-100"
+          iconColor="text-gray-500"
         />
       </div>
 

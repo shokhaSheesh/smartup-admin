@@ -273,7 +273,7 @@ companies.forEach((c, i) => {
   const plan = plans[int(0, 2)]
   const periodDays = plan.durationDays
   const elapsed = int(1, periodDays - 1)
-  const periodEnd = daysAhead(periodDays - elapsed)
+  let periodEnd = daysAhead(periodDays - elapsed)
 
   let status: SubscriptionStatus
   let quotaUsed: number
@@ -281,9 +281,13 @@ companies.forEach((c, i) => {
   // so exceeding it is a number on an active subscription, not a status.
   let overageDocs = 0
 
-  if (chance(0.06)) {
+  if (chance(0.12)) {
     status = 'cancelled'
     quotaUsed = int(0, plan.docQuota)
+  } else if (chance(0.14)) {
+    // Period already ran out and was not renewed.
+    status = 'expired'
+    quotaUsed = int(Math.floor(plan.docQuota * 0.5), plan.docQuota)
   } else if (chance(0.18)) {
     status = 'active'
     quotaUsed = plan.docQuota
@@ -294,6 +298,8 @@ companies.forEach((c, i) => {
       ? int(Math.floor(plan.docQuota * 0.82), plan.docQuota - 1)
       : int(0, Math.floor(plan.docQuota * 0.8))
   }
+
+  if (status === 'expired') periodEnd = daysAgo(int(1, 40))
 
   c.planName = plan.name
 
