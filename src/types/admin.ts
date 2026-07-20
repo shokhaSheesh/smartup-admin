@@ -163,6 +163,11 @@ export type Plan = {
   /** Plan length in days — entered directly, e.g. 30, 90, 365. */
   durationDays: number
   docQuota: number
+  /**
+   * Charged per outgoing document once docQuota is used up. Set by the plan,
+   * not by the volume tiers — those apply only to tenants without a plan.
+   */
+  overagePricePerDoc: number
   maxEmployees: number
   /** Free-form list — admins add whatever a plan includes. */
   features: string[]

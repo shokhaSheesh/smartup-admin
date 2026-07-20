@@ -28,6 +28,7 @@ import { DOC_TYPES, docTypeLabel } from '@/types/admin'
 import {
   balanceByCompany,
   companyById,
+  overagePriceFor,
   userById,
   documentsByCompany,
   paymentsByCompany,
@@ -617,6 +618,11 @@ export default function TenantDetailPage() {
               </div>
 
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Цена за документ сверх квоты">
+                  {overagePriceFor(company.id) === null
+                    ? '—'
+                    : formatSum(overagePriceFor(company.id)!)}
+                </Field>
                 <Field label="Документов сверх квоты за период">
                   {formatNumber(subscription.overageDocs)}
                 </Field>

@@ -20,6 +20,7 @@ type PlanDraft = {
   price: string
   durationDays: string
   docQuota: string
+  overagePricePerDoc: string
   maxEmployees: string
   features: string[]
   isActive: boolean
@@ -32,6 +33,7 @@ function emptyDraft(sortOrder: number): PlanDraft {
     price: '',
     durationDays: '30',
     docQuota: '',
+    overagePricePerDoc: '',
     maxEmployees: '',
     features: [],
     isActive: true,
@@ -45,6 +47,7 @@ function draftFromPlan(plan: Plan): PlanDraft {
     price: String(plan.price),
     durationDays: String(plan.durationDays),
     docQuota: String(plan.docQuota),
+    overagePricePerDoc: String(plan.overagePricePerDoc),
     maxEmployees: String(plan.maxEmployees),
     features: [...plan.features],
     isActive: plan.isActive,
@@ -135,6 +138,7 @@ export default function PlansPage() {
                 price: toNumber(draft.price),
                 durationDays: toNumber(draft.durationDays),
                 docQuota: toNumber(draft.docQuota),
+                overagePricePerDoc: toNumber(draft.overagePricePerDoc),
                 maxEmployees: toNumber(draft.maxEmployees),
                 features: draft.features,
                 isActive: draft.isActive,
@@ -152,6 +156,7 @@ export default function PlansPage() {
           price: toNumber(draft.price),
           durationDays: toNumber(draft.durationDays),
           docQuota: toNumber(draft.docQuota),
+          overagePricePerDoc: toNumber(draft.overagePricePerDoc),
           maxEmployees: toNumber(draft.maxEmployees),
           features: draft.features,
           isActive: draft.isActive,
@@ -194,6 +199,16 @@ export default function PlansPage() {
       header: 'Квота документов',
       cls: 'text-right',
       cell: (p) => <span className="tabular-nums">{formatNumber(p.docQuota)}</span>,
+    },
+    {
+      key: 'overage',
+      header: 'Сверх квоты, за док.',
+      cls: 'text-right',
+      cell: (p) => (
+        <span className="whitespace-nowrap tabular-nums text-slate-800">
+          {formatMoney(p.overagePricePerDoc)}
+        </span>
+      ),
     },
     {
       key: 'subscribers',
@@ -324,6 +339,16 @@ export default function PlansPage() {
               hint="Исходящие документы, списываются из квоты по факту отправки"
               onChange={(e) => setDraft((d) => ({ ...d, docQuota: e.target.value }))}
               placeholder="1500"
+            />
+            <Input
+              label="Цена за документ сверх квоты, сум"
+              value={draft.overagePricePerDoc}
+              inputMode="numeric"
+              hint="Списывается с баланса за каждый документ после исчерпания квоты"
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, overagePricePerDoc: e.target.value }))
+              }
+              placeholder="320"
             />
             <Input
               label="Макс. сотрудников"

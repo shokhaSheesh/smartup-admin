@@ -249,8 +249,9 @@ export function TariffEditModal({ open, onClose, company, onSave }: TariffEditMo
                   Поля ниже заполнены из плана «{selectedPlan.name}»:{' '}
                   {formatNumber(selectedPlan.docQuota)} док.,{' '}
                   {formatNumber(selectedPlan.maxEmployees)} сотр.,{' '}
-                  {formatNumber(selectedPlan.durationDays)} дн. Их можно изменить —
-                  изменённые значения помечаются.
+                  {formatNumber(selectedPlan.durationDays)} дн. Сверх квоты —{' '}
+                  {formatMoney(selectedPlan.overagePricePerDoc)} сум за документ. Поля можно
+                  изменить — изменённые значения помечаются.
                 </span>
               </div>
             )}

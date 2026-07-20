@@ -110,6 +110,7 @@ export const plans: Plan[] = [
   {
     id: 'plan-start',
     name: 'Старт',
+    overagePricePerDoc: 450,
     price: 150_000,
     durationDays: 30,
     docQuota: 300,
@@ -122,6 +123,7 @@ export const plans: Plan[] = [
   {
     id: 'plan-business',
     name: 'Бизнес',
+    overagePricePerDoc: 320,
     price: 450_000,
     durationDays: 30,
     docQuota: 1_500,
@@ -134,6 +136,7 @@ export const plans: Plan[] = [
   {
     id: 'plan-corp',
     name: 'Корпоративный',
+    overagePricePerDoc: 240,
     price: 1_800_000,
     durationDays: 30,
     docQuota: 10_000,
@@ -146,6 +149,7 @@ export const plans: Plan[] = [
   {
     id: 'plan-corp-year',
     name: 'Корпоративный (год)',
+    overagePricePerDoc: 220,
     price: 18_360_000,
     durationDays: 365,
     docQuota: 130_000,
@@ -158,6 +162,7 @@ export const plans: Plan[] = [
   {
     id: 'plan-legacy',
     name: 'Промо 2025',
+    overagePricePerDoc: 500,
     price: 99_000,
     durationDays: 30,
     docQuota: 250,
@@ -311,7 +316,7 @@ companies.forEach((c, i) => {
     amountPaid: plan.price,
     overageMode,
     overageDocs,
-    overageAmount: overageDocs * effectivePricePerDoc(c),
+    overageAmount: overageDocs * plan.overagePricePerDoc,
   })
 })
 
@@ -324,6 +329,13 @@ plans.forEach((p) => {
 })
 
 /* ----------------------------------------------------------------- balances */
+
+/** The overage price a company pays past its quota, or null when it has no plan. */
+export function overagePriceFor(companyId: string): number | null {
+  const sub = subscriptions.find((s) => s.companyId === companyId)
+  if (!sub) return null
+  return plans.find((p) => p.id === sub.planId)?.overagePricePerDoc ?? null
+}
 
 export const balances: BalanceAccount[] = companies.map((c) => {
   const totalToppedUp = c.billingMode === 'subscription' ? int(0, 2_000_000) : int(500_000, 12_000_000)
@@ -445,8 +457,9 @@ const companyDocuments: AdminDocument[] = Array.from({ length: 420 }, (_, i) => 
       chargeType = 'payg'
       chargeAmount = effectivePricePerDoc(company)
     } else {
+      // Past the quota the plan's own overage price applies, not the tier table.
       chargeType = 'payg_overage'
-      chargeAmount = effectivePricePerDoc(company)
+      chargeAmount = overagePriceFor(company.id) ?? effectivePricePerDoc(company)
     }
   }
 
