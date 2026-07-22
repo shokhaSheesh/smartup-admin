@@ -12,6 +12,24 @@ export function formatSum(value: number): string {
   return `${formatMoney(value)} сум`
 }
 
+/**
+ * Abbreviated money for KPI cards and chart axes — 15 000 000 → «15 млн сум».
+ * Below a million the full number reads fine, so it stays as-is.
+ */
+export function formatCompactSum(value: number): string {
+  const abs = Math.abs(value)
+  const sign = value < 0 ? '−' : ''
+  const round = (n: number) => {
+    const r = Math.round(n * 10) / 10
+    return (Number.isInteger(r) ? r : r.toFixed(1)).toLocaleString('ru-RU')
+  }
+  if (abs >= 1_000_000_000_000) return `${sign}${round(abs / 1_000_000_000_000)} трлн сум`
+  if (abs >= 1_000_000_000) return `${sign}${round(abs / 1_000_000_000)} млрд сум`
+  if (abs >= 1_000_000) return `${sign}${round(abs / 1_000_000)} млн сум`
+  if (abs >= 1_000) return `${sign}${round(abs / 1_000)} тыс сум`
+  return formatSum(value)
+}
+
 export function formatNumber(value: number): string {
   return value.toLocaleString('ru-RU')
 }

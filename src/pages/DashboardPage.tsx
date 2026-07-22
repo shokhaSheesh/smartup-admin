@@ -28,7 +28,7 @@ import {
   totalUsers,
   userGrowth,
 } from '@/data/dashboard'
-import { formatNumber, formatSum } from '@/lib/format'
+import { formatCompactSum, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const BLUE = '#1b9cd8'
@@ -128,6 +128,12 @@ export default function DashboardPage() {
   const providers = useMemo(() => providerSplit(g, year, month), [g, year, month])
   const docTypes = useMemo(() => docTypeSplit(g, year, month), [g, year, month])
 
+  const providerTotal = useMemo(
+    () => providers.reduce((sum, s) => sum + s.value, 0),
+    [providers],
+  )
+  const pct = (v: number) => (providerTotal === 0 ? 0 : Math.round((v / providerTotal) * 100))
+
   const userTotals = useMemo(() => totalUsers(), [])
 
   return (
@@ -149,13 +155,13 @@ export default function DashboardPage() {
         />
         <StatCard
           value={formatNumber(userTotals.total)}
-          label={`Всего пользователей · ${formatNumber(userTotals.employees)} сотрудников, ${formatNumber(userTotals.individuals)} физлиц`}
+          label="Всего пользователей"
           icon={Users}
           iconBg="bg-purple-50"
           iconColor="text-purple-600"
         />
         <StatCard
-          value={formatSum(totalRevenue())}
+          value={formatCompactSum(totalRevenue())}
           label="Общая выручка"
           icon={CreditCard}
           iconBg="bg-green-100"
@@ -188,15 +194,15 @@ export default function DashboardPage() {
                 width={64}
                 tickFormatter={(v: number) =>
                   v >= 1_000_000
-                    ? `${(v / 1_000_000).toFixed(0)}М`
+                    ? `${Math.round(v / 1_000_000)} млн`
                     : v >= 1_000
-                      ? `${(v / 1_000).toFixed(0)}т`
+                      ? `${Math.round(v / 1_000)} тыс`
                       : String(v)
                 }
               />
               <Tooltip
                 {...tooltipStyle}
-                formatter={(v) => [formatSum(Number(v)), 'Выручка']}
+                formatter={(v) => [formatCompactSum(Number(v)), 'Выручка']}
               />
               <Area
                 type="monotone"
@@ -209,7 +215,7 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Платёжные провайдеры" subtitle="Доля успешных платежей за период">
+        <ChartCard title="Платёжные провайдеры" subtitle="Доля успешных платежей за период, %">
           {providers.length === 0 ? (
             <div className="flex h-[240px] items-center justify-center text-sm text-gray-400">
               Нет платежей за период
@@ -233,7 +239,10 @@ export default function DashboardPage() {
                 </Pie>
                 <Tooltip
                   {...tooltipStyle}
-                  formatter={(v, name) => [`${formatNumber(Number(v))} платежей`, name]}
+                  formatter={(v, name) => [
+                    `${pct(Number(v))}% · ${formatNumber(Number(v))} платежей`,
+                    name,
+                  ]}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -247,7 +256,7 @@ export default function DashboardPage() {
                     style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
                   />
                   <span className="text-slate-700">{slice.name}</span>
-                  <span className="text-gray-400">{formatNumber(slice.value)}</span>
+                  <span className="font-medium text-slate-500">{pct(slice.value)}%</span>
                 </span>
               ))}
             </div>

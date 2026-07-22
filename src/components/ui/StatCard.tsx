@@ -23,8 +23,8 @@ export function StatCard({
   return (
     <div className="flex flex-1 items-center gap-6 rounded-xl border border-gray-200 bg-white px-6 py-4 shadow-[0px_4px_12px_0px_rgba(0,0,0,0.08)]">
       <div className="flex flex-col gap-1">
-        <span className="text-2xl font-bold leading-8">{value}</span>
-        <span className="text-base font-semibold text-slate-800">{label}</span>
+        <span className="text-sm font-medium text-gray-500">{label}</span>
+        <span className="text-2xl font-bold leading-8 text-slate-900">{value}</span>
         {trend !== undefined && (
           <span
             className={cn(
