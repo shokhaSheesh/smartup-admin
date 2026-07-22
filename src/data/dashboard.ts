@@ -9,7 +9,7 @@ import {
   payments,
   platformUsers,
 } from './mock'
-import { PAYMENT_PROVIDERS, DOC_TYPES } from '@/types/admin'
+import { PAYMENT_CHANNELS, DOC_TYPES, paymentChannel } from '@/types/admin'
 
 export type Granularity = 'day' | 'month' | 'year'
 
@@ -105,18 +105,21 @@ export function revenueSeries(g: Granularity, year: number, month: number) {
   }))
 }
 
-/** Provider share of successful payments within the whole selected period. */
+/**
+ * Share of successful payments by settlement channel over the period — the
+ * gateways plus «Карта» for saved-card charges. Manual top-ups have no channel.
+ */
 export function providerSplit(g: Granularity, year: number, month: number) {
   const bs = buckets(g, year, month)
   const from = bs[0].start
   const to = bs[bs.length - 1].end
   const inRange = payments.filter((p) => {
     const t = ts(p.createdAt)
-    return p.status === 'success' && p.provider !== null && t >= from && t < to
+    return p.status === 'success' && t >= from && t < to
   })
-  return PAYMENT_PROVIDERS.map((provider) => ({
-    name: provider,
-    value: inRange.filter((p) => p.provider === provider).length,
+  return PAYMENT_CHANNELS.map((channel) => ({
+    name: channel,
+    value: inRange.filter((p) => paymentChannel(p) === channel).length,
   })).filter((slice) => slice.value > 0)
 }
 

@@ -20,11 +20,7 @@ export type TxType =
  * saved-card charge happens on our side, so we hold the masked PAN; a
  * provider-page payment redirects the payer to Click/Payme and we never see it.
  */
-export type PaymentMethod =
-  | 'saved_card'
-  | 'provider_page'
-  | 'bank_transfer'
-  | 'manual'
+export type PaymentMethod = 'saved_card' | 'provider_page' | 'manual'
 export type PaymentStatus = 'success' | 'failed'
 
 /** The 16 document types on the platform. */
@@ -227,8 +223,27 @@ export type Transaction = {
 }
 
 /** Payment providers the platform settles through. */
-export const PAYMENT_PROVIDERS = ['Payme', 'Click', 'Uzum Bank', 'Apelsin'] as const
+export const PAYMENT_PROVIDERS = ['Payme', 'Click', 'Octobank', 'Paynet'] as const
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number]
+
+/** The label for a saved-card charge — a settlement channel like the gateways. */
+export const CARD_CHANNEL = 'Карта'
+
+/** Every way money reaches us: the redirect gateways plus a saved-card charge. */
+export const PAYMENT_CHANNELS = [...PAYMENT_PROVIDERS, CARD_CHANNEL] as const
+export type PaymentChannel = (typeof PAYMENT_CHANNELS)[number]
+
+/**
+ * The channel a payment settled through — a saved-card charge reports «Карта»
+ * rather than a gateway. Manual admin top-ups have no channel.
+ */
+export function paymentChannel(p: {
+  method: PaymentMethod
+  provider: PaymentProvider | null
+}): PaymentChannel | null {
+  if (p.method === 'saved_card') return CARD_CHANNEL
+  return p.provider
+}
 
 /**
  * A settlement attempt at a payment provider. Kept separate from balance

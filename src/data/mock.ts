@@ -2,7 +2,7 @@
  * Deterministic mock dataset for the super-admin panel.
  * Seeded PRNG so the data is stable across reloads — no backend yet.
  */
-import { DOC_TYPE_CATALOG, DOC_TYPES, PAYMENT_PROVIDERS } from '@/types/admin'
+import { CARD_CHANNEL, DOC_TYPE_CATALOG, DOC_TYPES, PAYMENT_PROVIDERS } from '@/types/admin'
 import type {
   AdminDocument,
   AdminUser,
@@ -22,7 +22,6 @@ import type {
   TenantStatus,
   PlatformUser,
   PaymentMethod,
-  PaymentProvider,
   PaymentStatus,
   TenantUserRole,
   AuthMethod,
@@ -570,9 +569,9 @@ const PROVIDER_ERRORS = [
   { code: -31610, message: 'Provider gateway timeout' },
 ]
 
-/** The body a provider returned, formatted as it arrived. */
+/** The body a settlement channel returned, formatted as it arrived. */
 function providerPayload(args: {
-  provider: PaymentProvider
+  provider: string
   ref: string
   amountTiyin: number
   status: PaymentStatus
@@ -606,21 +605,21 @@ function providerPayload(args: {
 export const payments: Payment[] = Array.from({ length: 140 }, (_, i) => {
   const c = companies[int(0, companies.length - 1)]
   const status: PaymentStatus = chance(0.16) ? 'failed' : 'success'
-  const method: PaymentMethod = chance(0.45)
+  const method: PaymentMethod = chance(0.6)
     ? 'provider_page'
-    : chance(0.5)
+    : chance(0.7)
       ? 'saved_card'
-      : chance(0.6)
-        ? 'bank_transfer'
-        : 'manual'
-  // A manual top-up is keyed in by an admin, so no provider is involved.
-  const provider = method === 'manual' ? null : pick(PAYMENT_PROVIDERS)
+      : 'manual'
+  // A provider-page payment goes through a gateway; a saved-card charge is on
+  // the customer's own card; a manual top-up is keyed in by an admin.
+  const provider = method === 'provider_page' ? pick(PAYMENT_PROVIDERS) : null
   const amount = pick([100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000])
   const createdAt = daysAgo(int(0, 120))
-  // Only a saved-card charge exposes the card to us; a provider-page payment
-  // happens entirely on the provider's side.
   const cardMask = method === 'saved_card' ? `8600 **** **** ${digits(4)}` : null
-  const providerRef = `${(provider ?? 'MANUAL').slice(0, 2).toUpperCase()}-${digits(10)}`
+  // The channel names the settlement — the gateway, or «Карта» for a card charge.
+  const channel = method === 'saved_card' ? CARD_CHANNEL : provider
+  const prefix = method === 'saved_card' ? 'CARD' : (provider ?? 'MANUAL')
+  const providerRef = `${prefix.slice(0, 3).toUpperCase()}-${digits(10)}`
 
   return {
     id: `pay-${i + 1}`,
@@ -635,9 +634,9 @@ export const payments: Payment[] = Array.from({ length: 140 }, (_, i) => {
     providerRef,
     cardMask,
     status,
-    rawResponse: provider
+    rawResponse: channel
       ? providerPayload({
-          provider,
+          provider: channel,
           ref: providerRef,
           amountTiyin: amount * 100,
           status,

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import type { Payment, PaymentStatus } from '@/types/admin'
-import { PAYMENT_PROVIDERS } from '@/types/admin'
+import { PAYMENT_CHANNELS, paymentChannel } from '@/types/admin'
 import { payments } from '@/data/mock'
-import { paymentMethodLabel, paymentStatusLabel } from '@/types/labels'
+import { paymentStatusLabel } from '@/types/labels'
 import { PageCard } from '@/components/ui/PageCard'
 import { StatCard } from '@/components/ui/StatCard'
 import { DataTable } from '@/components/ui/DataTable'
@@ -14,13 +14,12 @@ import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { PaymentStatusBadge } from '@/components/ui/StatusBadge'
 import { formatDateTime, formatInn, formatMoney, formatNumber } from '@/lib/format'
-import { cn } from '@/lib/cn'
 
 const ANY = 'all'
 
-const PROVIDER_OPTIONS = [
-  { value: ANY, label: 'Все провайдеры' },
-  ...PAYMENT_PROVIDERS.map((p) => ({ value: p, label: p })),
+const CHANNEL_OPTIONS = [
+  { value: ANY, label: 'Все каналы' },
+  ...PAYMENT_CHANNELS.map((c) => ({ value: c, label: c })),
 ]
 
 /** Last four digits only — the rest of the PAN is never useful here. */
@@ -56,7 +55,7 @@ export function ProviderPaymentsTab() {
   const providerPayments = useMemo(
     () =>
       payments
-        .filter((p) => p.provider !== null)
+        .filter((p) => p.method !== 'manual')
         .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
     [],
   )
@@ -64,7 +63,7 @@ export function ProviderPaymentsTab() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return providerPayments.filter((p) => {
-      if (provider !== ANY && p.provider !== provider) return false
+      if (provider !== ANY && paymentChannel(p) !== provider) return false
       if (status !== ANY && p.status !== status) return false
       if (!q) return true
       return (
@@ -97,24 +96,21 @@ export function ProviderPaymentsTab() {
       ),
     },
     {
-      key: 'provider',
-      header: 'Провайдер',
+      key: 'channel',
+      header: 'Канал',
       cell: (p) => {
         const tail = cardTail(p.cardMask)
         return (
           <div className="flex flex-col">
             <span className="text-sm font-medium whitespace-nowrap text-slate-800">
-              {p.provider}
+              {paymentChannel(p)}
             </span>
-            {/* Only a saved-card charge gives us the card; otherwise say how it was paid. */}
-            <span
-              className={cn(
-                'text-xs whitespace-nowrap text-gray-500',
-                tail && 'font-mono',
-              )}
-            >
-              {tail ? `•••• ${tail}` : paymentMethodLabel[p.method]}
-            </span>
+            {/* A saved-card charge shows the card; a gateway payment does not. */}
+            {tail && (
+              <span className="font-mono text-xs whitespace-nowrap text-gray-500">
+                •••• {tail}
+              </span>
+            )}
           </div>
         )
       },
@@ -197,8 +193,8 @@ export function ProviderPaymentsTab() {
         {showFilters && (
           <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2">
             <Select
-              label="Провайдер"
-              options={PROVIDER_OPTIONS}
+              label="Канал"
+              options={CHANNEL_OPTIONS}
               value={provider}
               onChange={(v) => {
                 setProvider(v)
@@ -244,9 +240,9 @@ export function ProviderPaymentsTab() {
           <div className="flex flex-col gap-4 px-6 py-5">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs text-gray-500">Провайдер</span>
+                <span className="text-xs text-gray-500">Канал</span>
                 <span className="text-sm font-medium text-slate-800">
-                  {inspected.provider}
+                  {paymentChannel(inspected)}
                 </span>
               </div>
               <div className="flex flex-col gap-0.5">

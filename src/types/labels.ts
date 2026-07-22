@@ -82,7 +82,6 @@ export const txTypeLabel: Record<TxType, string> = {
 export const paymentMethodLabel: Record<PaymentMethod, string> = {
   saved_card: 'Привязанная карта',
   provider_page: 'Страница провайдера',
-  bank_transfer: 'Банковский перевод',
   manual: 'Вручную',
 }
 
