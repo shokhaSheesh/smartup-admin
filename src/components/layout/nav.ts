@@ -20,7 +20,7 @@ export type NavItem = {
 }
 
 export const mainNav: NavItem[] = [
-  { label: 'Дашборд', icon: BarChart3, comingSoon: true },
+  { label: 'Дашборд', icon: BarChart3, to: '/dashboard' },
   { label: 'Компании', icon: Building2, to: '/tenants' },
   { label: 'Пользователи', icon: Users, to: '/users' },
   { label: 'Документы', icon: FileText, to: '/documents' },

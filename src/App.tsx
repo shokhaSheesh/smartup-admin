@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import LoginPage from './pages/LoginPage'
+import DashboardPage from './pages/DashboardPage'
 import TenantsPage from './pages/TenantsPage'
 import TenantDetailPage from './pages/TenantDetailPage'
 import UsersPage from './pages/UsersPage'
@@ -21,10 +22,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/tenants" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<LoginPage />} />
 
         <Route element={<AppLayout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+
           <Route path="/tenants" element={<TenantsPage />} />
           <Route path="/tenants/:id" element={<TenantDetailPage />} />
           <Route

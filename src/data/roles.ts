@@ -31,6 +31,7 @@ export type Role = {
 
 /** Every page of the panel, grouped the way the sidebar groups them. */
 export const ADMIN_PAGES: Array<{ key: string; label: string; group: string }> = [
+  { key: 'dashboard', label: 'Дашборд', group: 'Основное' },
   { key: 'tenants', label: 'Компании', group: 'Основное' },
   { key: 'users', label: 'Пользователи', group: 'Основное' },
   { key: 'documents', label: 'Документы', group: 'Основное' },
