@@ -8,6 +8,7 @@ import type {
   UserStatus,
   UserKind,
   PaymentStatus,
+  ServiceInvoiceStatus,
 } from '@/types/admin'
 import {
   tenantStatusLabel,
@@ -18,6 +19,7 @@ import {
   userStatusLabel,
   userKindLabel,
   paymentStatusLabel,
+  serviceInvoiceStatusLabel,
 } from '@/types/labels'
 
 const base = 'inline-flex items-center rounded-md px-3 py-1 text-sm font-medium'
@@ -68,6 +70,13 @@ const paymentStyles: Record<PaymentStatus, string> = {
   failed: 'bg-red-100 text-red-600',
 }
 
+const serviceInvoiceStyles: Record<ServiceInvoiceStatus, string> = {
+  draft: 'bg-amber-50 text-amber-500',
+  sent: 'bg-blue-50 text-Smart-blue',
+  signed: 'bg-green-100 text-emerald-600',
+  rejected: 'bg-red-100 text-red-600',
+}
+
 export function TenantStatusBadge({ status }: { status: TenantStatus }) {
   return <span className={cn(base, tenantStyles[status])}>{tenantStatusLabel[status]}</span>
 }
@@ -109,3 +118,10 @@ export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
   return <span className={cn(base, paymentStyles[status])}>{paymentStatusLabel[status]}</span>
 }
 
+export function ServiceInvoiceStatusBadge({ status }: { status: ServiceInvoiceStatus }) {
+  return (
+    <span className={cn(base, 'whitespace-nowrap', serviceInvoiceStyles[status])}>
+      {serviceInvoiceStatusLabel[status]}
+    </span>
+  )
+}

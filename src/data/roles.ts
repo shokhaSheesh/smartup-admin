@@ -40,6 +40,7 @@ export const ADMIN_PAGES: Array<{ key: string; label: string; group: string }> =
   { key: 'pricing', label: 'Ценовые уровни', group: 'Биллинг' },
   { key: 'subscriptions', label: 'Подписки', group: 'Биллинг' },
   { key: 'transactions', label: 'Транзакции', group: 'Биллинг' },
+  { key: 'invoices', label: 'Счета-фактуры', group: 'Биллинг' },
   { key: 'adjustments', label: 'Ручные корректировки', group: 'Биллинг' },
 
   { key: 'team', label: 'Команда администраторов', group: 'Администрирование' },
@@ -111,6 +112,7 @@ const seedRoles: Role[] = [
       pricing: FULL_ACCESS,
       subscriptions: { read: true, create: true, update: true, delete: false },
       adjustments: { read: true, create: true, update: false, delete: false },
+      invoices: { read: true, create: true, update: false, delete: false },
       team: NO_ACCESS,
       roles: NO_ACCESS,
     }),

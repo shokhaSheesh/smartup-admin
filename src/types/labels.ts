@@ -12,6 +12,7 @@ import type {
   TxType,
   PaymentMethod,
   PaymentStatus,
+  ServiceInvoiceStatus,
 } from './admin'
 
 export const tenantStatusLabel: Record<TenantStatus, string> = {
@@ -90,3 +91,9 @@ export const paymentStatusLabel: Record<PaymentStatus, string> = {
   failed: 'Ошибка',
 }
 
+export const serviceInvoiceStatusLabel: Record<ServiceInvoiceStatus, string> = {
+  draft: 'В черновиках',
+  sent: 'Отправлена',
+  signed: 'Подписана',
+  rejected: 'Отклонена',
+}

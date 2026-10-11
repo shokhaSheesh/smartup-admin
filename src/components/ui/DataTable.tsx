@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn'
 /** Config-driven column, per the design system convention. */
 export type Column<T> = {
   key: string
-  header: string
+  header: ReactNode
   show?: boolean
   cls?: string
   cell: (row: T) => ReactNode

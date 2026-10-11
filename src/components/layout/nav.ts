@@ -32,6 +32,7 @@ export const mainNav: NavItem[] = [
       { label: 'Ценовые уровни', to: '/billing/pricing' },
       { label: 'Подписки', to: '/billing/subscriptions' },
       { label: 'Транзакции', to: '/billing/transactions' },
+      { label: 'Счета-фактуры', to: '/billing/invoices' },
       { label: 'Ручные корректировки', to: '/billing/adjustments' },
     ],
   },

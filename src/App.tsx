@@ -13,6 +13,8 @@ import PlansPage from './pages/billing/PlansPage'
 import PricingPage from './pages/billing/PricingPage'
 import SubscriptionsPage from './pages/billing/SubscriptionsPage'
 import TransactionsPage from './pages/billing/TransactionsPage'
+import InvoicesPage from './pages/billing/InvoicesPage'
+import InvoiceDetailPage from './pages/billing/InvoiceDetailPage'
 import AdjustmentsPage from './pages/billing/AdjustmentsPage'
 import TeamPage from './pages/admin/TeamPage'
 import RolesPage from './pages/admin/RolesPage'
@@ -45,6 +47,9 @@ export default function App() {
           <Route path="/billing/pricing" element={<PricingPage />} />
           <Route path="/billing/subscriptions" element={<SubscriptionsPage />} />
           <Route path="/billing/transactions" element={<TransactionsPage />} />
+          <Route path="/billing/invoices" element={<InvoicesPage />} />
+          <Route path="/billing/invoices/open/:payerId" element={<InvoiceDetailPage />} />
+          <Route path="/billing/invoices/:invoiceId" element={<InvoiceDetailPage />} />
           <Route path="/billing/adjustments" element={<AdjustmentsPage />} />
 
           <Route path="/admin/team" element={<TeamPage />} />

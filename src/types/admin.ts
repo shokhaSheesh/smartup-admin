@@ -22,6 +22,11 @@ export type TxType =
  */
 export type PaymentMethod = 'saved_card' | 'provider_page' | 'manual'
 export type PaymentStatus = 'success' | 'failed'
+/**
+ * Where a счёт-фактура for our own services stands. We only create the draft;
+ * every later status is reported back by Smartup24 Doc.
+ */
+export type ServiceInvoiceStatus = 'draft' | 'sent' | 'signed' | 'rejected'
 
 /** The 16 document types on the platform. */
 /**
